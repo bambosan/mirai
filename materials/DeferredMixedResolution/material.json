@@ -1,0 +1,6 @@
+{
+    "uniform_overrides": {
+        "DimensionID": "BUILTIN_MinecraftDimensionID",
+        "WeatherID": "BUILTIN_MinecraftWeatherID"
+    }
+}

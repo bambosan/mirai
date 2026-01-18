@@ -1,0 +1,9 @@
+{
+  "file_overwrite": {
+    "default": {
+      "fragment": "fragment.glsl",
+      "vertex": "vertex.glsl",
+      "varying": "varying.def.glsl",
+    }
+  }
+}

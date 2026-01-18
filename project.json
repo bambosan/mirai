@@ -1,0 +1,13 @@
+{
+  "base_profile": {
+    "platforms": ["ESSL_310","Direct3D_SM65","Metal"],
+    "merge_source": ["./vanilla"],
+    "include_patterns": ["./materials/*"],
+    "include_search_paths": ["./include/", "./include/bgfx/"]
+  },
+  "profiles": {
+    "windows": {"platforms": ["Direct3D_SM65"]},
+    "android": {"platforms": ["ESSL_310"]},
+    "ios": {"platforms": ["Metal"]}
+  }
+}

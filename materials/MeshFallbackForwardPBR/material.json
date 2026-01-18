@@ -1,0 +1,5 @@
+{
+    "uniform_overrides": {
+        "DimensionID": "BUILTIN_MinecraftDimensionID"
+    }
+}

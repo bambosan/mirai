@@ -1,0 +1,14 @@
+{
+  "file_overwrite": {
+    "default": {
+      "compute": "compute.glsl"
+    },
+    "passes": {
+      "Fallback": {
+        "fragment": "fragment.glsl",
+        "vertex": "vertex.glsl",
+        "varying": "varying.def.glsl",
+      }
+    }
+  }
+}
