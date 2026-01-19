@@ -1,0 +1,19 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Mirai",
+    "description": "A heavy modified Vibrant Visual pipelines\nBy: bambosan",
+    "uuid": "ceb165eb-8f29-4ef7-b160-6d4d04d5fbaf",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 21, 100]
+  },
+  "modules": [
+    {
+      "description": "A heavy modified Vibrant Visual pipelines\nBy: bambosan",
+      "type": "resources",
+      "uuid": "b40db93b-2f33-4d9e-83be-1c5cdb5f530e",
+      "version": [1, 0, 0]
+    }
+  ],
+  "capabilities": ["pbr"]
+}
