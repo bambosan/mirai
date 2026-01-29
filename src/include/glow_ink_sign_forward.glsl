@@ -13,6 +13,7 @@ void main(){
     vec3 worldPos = mul(u_model[0], vec4(a_position, 1.0)).xyz;
 #endif
     gl_Position = mul(u_modelViewProj, vec4(worldPos, 1.0));
+
     v_clipPos = gl_Position;
     v_color0 = a_color0;
     v_worldPos = worldPos;
@@ -66,17 +67,19 @@ void main() {
     vec3 blockAmbient = BLOCK_LIGHT_COLOR * uv1x2lig(TileLightIntensity.r) * BLOCK_LIGHT_INTENSITY;
     vec3 skyAmbient = mix(pow(TileLightIntensity.g, 3.0), pow(TileLightIntensity.g, 5.0), CameraLightIntensity.g) * v_scatterColor * SKY_LIGHT_INTENSITY;
     vec3 outColor = albedo.rgb * (1.0 - MERSUniforms.r) * max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
-    vec3 normal = vec3(0.0, 1.0, 0.0);
+    vec3 normal = vec3(0.0, 0.0, 1.0);
     vec3 f0 = mix(vec3_splat(0.02), albedo.rgb, MERSUniforms.r);
     vec3 worldDir = normalize(v_worldPos);
     vec2 shadowMap = calcShadowMap(v_worldPos, normal);
-    vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo.rgb, shadowMap, MERSUniforms.r, MERSUniforms.b, MERSUniforms.a, SubsurfaceScatteringContributionAndDiffuseWrapValueAndFalloffScale.g);
+    vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo.rgb, shadowMap, MERSUniforms.r, MERSUniforms.b, MERSUniforms.a);
 
     outColor += bsdf * v_absorbColor;
     outColor += albedo.rgb * MERSUniforms.g * EMISSIVE_MATERIAL_INTENSITY;
-    outColor += indirectSpecular(f0, albedo.rgb, worldDir, normal, v_scatterColor, v_absorbColor, MERSUniforms.b, MERSUniforms.r, TileLightIntensity.rg);
 
-    if (CameraIsUnderwater.r != 0.0 && CausticsParameters.a != 0.0) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * length(v_worldPos));
+    bool isCameraInsideWater = CameraIsUnderwater.r != 0.0 && CausticsParameters.a != 0.0;
+    outColor += indirectSpecular(f0, worldDir, normal, v_scatterColor, v_absorbColor, MERSUniforms.b, MERSUniforms.r, TileLightIntensity.rg, !isCameraInsideWater);
+
+    if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * length(v_worldPos));
 
     if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x != 0.0) {
         vec3 projPos = v_clipPos.xyz / v_clipPos.w;

@@ -111,7 +111,7 @@ void main() {
     scattering += GetAtmosphere(vec3(0.0, 100.0, 0.0), worldDir, viewDist, MoonDir.xyz, vec3_splat(1.0), transmittance, shadowMap) * MOON_MAX_ILLUMINANCE;
 
     float altitudeMod = clamp(HeightFogScaleBias.x * worldPos.y + HeightFogScaleBias.y, 0.0, 1.0);
-    float fogBlend = calculateFogIntensityFaded(viewDist, FogAndDistanceControl.z, FogAndDistanceControl.x, FogAndDistanceControl.y, RenderChunkFogAlpha.x);
+    float fogBlend = calculateFogIntensityVanilla(viewDist, FogAndDistanceControl.z, 0.92, 1.0);
 
     vec4 scatterExt = vec4(scattering + extraMie * 5e-4, mix(1.0, 0.0, luminance(transmittance.rgb))) * saturate(1.0 - fogBlend) * altitudeMod;
 

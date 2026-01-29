@@ -51,7 +51,7 @@ void main() {
     normal = normalize(normal);
     mat3 tbn = mtxFromCols(normalize(v_tangent), normalize(v_bitangent), normal);
 
-    vec2 waterPos = (v_worldPos.xz - WorldOrigin.xz) * 0.15;
+    vec2 waterPos = v_worldPos.xz - WorldOrigin.xz;
     vec3 waterNormal = getWaterNormal(waterPos, Time.x);
     waterNormal = mul(tbn, waterNormal);
     waterNormal = mix(normal, waterNormal, saturate(exp(-length(v_worldPos.xz) * 0.01)));

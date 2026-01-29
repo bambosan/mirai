@@ -1,6 +1,8 @@
 #ifndef MATERIALS_INCLUDE
 #define MATERIALS_INCLUDE
 
+// taken from old vanilla deferred material
+
 CONST(float) kHeightMapPixelEdgeWidth = 0.08333333333333333;
 CONST(float) kHeightMapDepth = 4.0;
 CONST(float) kRecipHeightMapDepth = 0.25;

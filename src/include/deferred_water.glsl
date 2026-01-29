@@ -73,7 +73,7 @@ void main() {
 
     float shadowMap = calcShadowMap(worldPos, normal).r;
 
-    vec3 brdf = BRDFSpecular(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, shadowMap, metalness, roughness);
+    vec3 brdf = BRDFSpecular(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, shadowMap, roughness);
 
     vec3 outColor = v_absorbColor * brdf;
 

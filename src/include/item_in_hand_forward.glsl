@@ -1,6 +1,6 @@
-#include "./lib/actor_func.glsl"
-#include "./lib/taau_util.glsl"
 #include "./lib/common.glsl"
+#include "./lib/actor_util.glsl"
+#include "./lib/taau_util.glsl"
 #include "./lib/atmosphere.glsl"
 
 #if BGFX_SHADER_TYPE_VERTEX
@@ -144,13 +144,15 @@ void main() {
     vec3 outColor = albedo.rgb * (1.0 - mers.r) * max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
     vec2 shadowMap = calcShadowMap(v_worldPos, normal);
     vec3 worldDir = normalize(v_worldPos);
-    vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo.rgb, shadowMap, mers.r, mers.b, mers.a, SubsurfaceScatteringContributionAndDiffuseWrapValueAndFalloffScale.g);
+    vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo.rgb, shadowMap, mers.r, mers.b, mers.a);
 
     outColor += bsdf * v_absorbColor;
     outColor += albedo.rgb * mers.g * EMISSIVE_MATERIAL_INTENSITY;
-    outColor += indirectSpecular(f0, albedo.rgb, worldDir, normal, v_scatterColor, v_absorbColor, mers.b, mers.r, TileLightIntensity.rg);
 
-    if (CameraIsUnderwater.r != 0.0 && CausticsParameters.a != 0.0) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * length(v_worldPos));
+    bool isCameraInsideWater = CameraIsUnderwater.r != 0.0 && CausticsParameters.a != 0.0;
+    outColor += indirectSpecular(f0, worldDir, normal, v_scatterColor, v_absorbColor, mers.b, mers.r, TileLightIntensity.rg, !isCameraInsideWater);
+
+    if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * length(v_worldPos));
 
     if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x != 0.0) {
         vec3 projPos = v_clipPos.xyz / v_clipPos.w;

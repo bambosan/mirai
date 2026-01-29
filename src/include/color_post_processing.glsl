@@ -58,6 +58,7 @@ vec3 agx_tonemapping(vec3 ci) {
     vec3 ct = saturate(log2(ci) * (1.0 / dynamic_range) - (min_ev / dynamic_range));
     vec3 co = agx_curve3(ct);
 
+    // i need more saturation
     co = saturation(co, 1.2);
 
     // Inverse input transform (outset)
@@ -75,6 +76,7 @@ void main() {
     vec3 inputColor = texture2D(s_ColorTexture, v_texcoord0).rgb;
     inputColor = max(inputColor, vec3_splat(0.0));
 
+    // from deobfuscated vanilla materials, currently just leave it there
     if (TonemapParams0.b > 0.0) {
         float preExposureLum = texture2D(s_PreExposureLuminance, vec2_splat(0.5)).r;
         inputColor = inputColor / vec3_splat((MIDDLE_GRAY / preExposureLum) + 0.0001);
@@ -84,7 +86,6 @@ void main() {
         float avgLum = texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
         refLuminance = clamp(avgLum, LuminanceMinMaxAndWhitePointAndMinWhitePoint.r, LuminanceMinMaxAndWhitePointAndMinWhitePoint.g);
     }
-
     int exposureMode = int(ExposureCompensation.r);
     float exposureValue = ExposureCompensation.g; //manual
     if (exposureMode > 0 && exposureMode < 2) {

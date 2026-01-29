@@ -92,7 +92,7 @@ void main() {
             shadowMap = shadowMap * (1.0 + caustic);
         }
 
-        vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo, shadowMap, metalness, data1.a, subsurface, SubsurfaceScatteringContributionAndDiffuseWrapValueAndFalloffScale.g);
+        vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo, shadowMap, metalness, data1.a, subsurface);
         gl_FragData[0].rgb = v_absorbColor * bsdf;
     }
 }

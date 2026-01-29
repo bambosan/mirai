@@ -10,7 +10,7 @@ SAMPLER2D_HIGHP_AUTOREG(s_BrdfLUT);
 uniform highp vec4 SSRParameters;
 SAMPLER2D_HIGHP_AUTOREG(s_SSRTexture);
 
-vec3 indirectSpecular(vec3 f0, vec3 albedo, vec3 worldDir, vec3 normal, vec3 scatterColor, vec3 absorbColor, vec2 ssrUV, float roughness, float metalness, vec2 lightmap, float exposure, bool isNeedSkyReflection) {
+vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 scatterColor, vec3 absorbColor, vec2 ssrUV, float roughness, float metalness, vec2 lightmap, float exposure, bool isNeedSkyReflection) {
     vec3 blockAmbient = BLOCK_LIGHT_COLOR * uv1x2lig(lightmap.r) * BLOCK_LIGHT_INTENSITY;
     vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
     vec3 incomingLight = ambientColor;
@@ -49,7 +49,7 @@ vec3 indirectSpecular(vec3 f0, vec3 albedo, vec3 worldDir, vec3 normal, vec3 sca
 
 #else
 
-vec3 indirectSpecular(vec3 f0, vec3 albedo, vec3 worldDir, vec3 normal, vec3 scatterColor, vec3 absorbColor, float roughness, float metalness, vec2 lightmap) {
+vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 scatterColor, vec3 absorbColor, float roughness, float metalness, vec2 lightmap, bool isNeedSkyReflection) {
     vec3 blockAmbient = BLOCK_LIGHT_COLOR * uv1x2lig(lightmap.r) * BLOCK_LIGHT_INTENSITY;
     vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
     vec3 incomingLight = ambientColor;
@@ -61,8 +61,10 @@ vec3 indirectSpecular(vec3 f0, vec3 albedo, vec3 worldDir, vec3 normal, vec3 sca
 
         skyReflection = calcClouds(reflectedDir, SunDir.xyz, MoonDir.xyz, scatterColor, absorbColor, skyReflection, Time.x);
 
-        float refIntensity = 1.0 - sqrt(roughness);
-        incomingLight = mix(incomingLight, skyReflection * pow(lightmap.g, 3.0) * refIntensity, refIntensity);
+        if (isNeedSkyReflection) {
+            float refIntensity = 1.0 - sqrt(roughness);
+            incomingLight = mix(incomingLight, skyReflection * pow(lightmap.g, 3.0) * refIntensity, refIntensity);
+        }
     }
 
     float cost = saturate(dot(-worldDir, normal));

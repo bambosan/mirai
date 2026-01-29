@@ -1,7 +1,7 @@
 #ifndef COMMON_INCLUDE
 #define COMMON_INCLUDE
 
-#define EPSILON 1e-5
+#define EPSILON 0.0001
 #define PI 3.14159265358979
 #define HALF_PI 1.57079632679489
 
@@ -66,8 +66,9 @@ float uv1x2lig(float uv1x) {
     return max(0.0, ux2l(l) - ux2l(15.0) * (1.0 - uv1x));
 }
 
-float rand(vec2 p) {
-    vec3 p3 = fract(p.xyx * 0.1031);
+//https://www.shadertoy.com/view/4djSRW
+float hash12(vec2 p) {
+	vec3 p3  = fract(p.xyx * .1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
 }
@@ -76,26 +77,31 @@ float noise2d(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
-    float a = rand(i);
-    float b = rand(i + vec2(1.0, 0.0));
-    float c = rand(i + vec2(0.0, 1.0));
-    float d = rand(i + vec2(1.0, 1.0));
+	
+    float a = hash12(i);
+    float b = hash12(i + vec2(1.0, 0.0));
+    float c = hash12(i + vec2(0.0, 1.0));
+    float d = hash12(i + vec2(1.0, 1.0));
+	
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
 float fbm(vec2 p, float time) {
     float s = 0.0;
     float a = 0.3;
+	float wind = time * 0.1;
+    
     for (int i = 0; i < 4; i++) {
-        s += noise2d(p + time * 0.1) * a;
+        s += noise2d(p + wind) * a;
         p *= 2.5;
         a *= 0.5;
     }
+	
     return smoothstep(0.25, 1.0, s);
 }
 
 vec3 calcClouds(vec3 nWorldPos, vec3 sunDir, vec3 moonDir, vec3 scatterColor, vec3 absorbColor, vec3 sky, float time) {
-    vec2 cloudpos = nWorldPos.xz / nWorldPos.y;
+    vec2 cloudpos = nWorldPos.xz / max(nWorldPos.y, EPSILON);
     float cm = fbm(cloudpos, time);
 
     float sunCost = max(distance(nWorldPos, sunDir), 0.0);
