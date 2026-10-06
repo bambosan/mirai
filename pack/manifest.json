@@ -1,31 +1,21 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Mirai",
-    "description": "Make Minecraft visual looks realistic\nBy: bambosan",
-    "uuid": "a214c2a8-3a57-4030-86f7-cf0f786e7662",
-    "version": [2, 1, 1],
-    "min_engine_version": [1, 26, 10]
+    "name": "Mirai 3.0.0 Test Finale",
+    "description": "By: bambosan",
+    "uuid": "2d68c0a8-e026-4e3f-961e-625fbde7f218",
+    "version": [3, 0, 0],
+    "min_engine_version": [1, 26, 50]
   },
   "modules": [
     {
-      "description": "Make Minecraft visual looks realistic\nBy: bambosan",
+      "description": "By: bambosan",
       "type": "resources",
-      "uuid": "c0e2a54c-99a5-4e2f-a9a4-810c2dbd442f",
-      "version": [2, 1, 1]
+      "uuid": "3442c605-b404-420f-8ede-1e643e931363",
+      "version": [3, 0, 0]
     }
   ],
-  "subpacks": [
-    {
-      "folder_name": "vc",
-      "name": "Volumetric Clouds Enabled",
-      "memory_tier": 2
-    },
-    {
-      "folder_name": "novc",
-      "name": "Volumetric Clouds §7Disabled",
-      "memory_tier": 2
-    }
-  ],
-  "capabilities": ["pbr"]
+  "capabilities": [
+    "pbr"
+  ]
 }

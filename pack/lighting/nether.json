@@ -2,23 +2,22 @@
   "format_version": "1.21.80",
   "minecraft:lighting_settings": {
     "description": {
-      "identifier": "mirai:default_lighting"
+      "identifier": "mirai:nether_lighting"
     },
     "directional_lights": {
       "orbital": {
         "sun": {
           "illuminance": 0,
-          "color": "#ffffff"
+          "color": "#000000"
         },
         "moon": {
           "illuminance": 0,
-          "color": "#ffffff"
-        },
-        "orbital_offset_degrees": 30.0
+          "color": "#000000"
+        }
       }
     },
     "ambient": {
-      "illuminance": 0.005,
+      "illuminance": 0.1,
       "color": "#ffffff"
     }
   }
