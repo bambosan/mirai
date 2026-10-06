@@ -1,140 +1,96 @@
+#include "lib/atmosphere.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
 #if FALLBACK_PASS
 void main() {
-    gl_Position = vec4_splat(0.0);
+    gl_Position = vec4(0.0);
 }
 #else
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
-uniform vec4 DimensionID;
+uniform vec4 SunColor;
 
-#include "./lib/common.glsl"
-#include "./lib/atmosphere.glsl"
+in vec3 a_position;
+in vec2 a_texcoord0;
+
+layout(location = 0) flat out vec3 v_absorbColor;
+layout(location = 1) out vec2 v_texcoord0;
+layout(location = 2) out vec2 v_projPos;
 
 void main() {
     v_texcoord0 = a_texcoord0;
     v_projPos = a_position.xy * 2.0 - 1.0;
-
-    //add smooth transition between night and sunrise, sunset and night
-    float sunFade = smoothstep(0.0, 0.1, SunDir.y);
-    float moonFade = smoothstep(0.0, 0.1, MoonDir.y);
-
-    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * SUN_MAX_ILLUMINANCE;
-    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * MOON_MAX_ILLUMINANCE;
-
-    AtmosphereParams sunAtmParams;
-    sunAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    sunAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
-    sunAtmParams.lightDir = SunDir.xyz;
-    sunAtmParams.rayLength = 1e10;
-    sunAtmParams.aerial = 1.0;
-    sunAtmParams.occlusion = 1.0;
-    sunAtmParams.mieMod = 1.0;
-    v_scatterColor = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
-
-    AtmosphereParams moonAtmParams;
-    moonAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    moonAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
-    moonAtmParams.lightDir = MoonDir.xyz;
-    moonAtmParams.rayLength = 1e10;
-    moonAtmParams.aerial = 1.0;
-    moonAtmParams.occlusion = 1.0;
-    moonAtmParams.mieMod = 1.0;
-    v_scatterColor += GetAtmosphere(moonAtmParams) * MOON_MAX_ILLUMINANCE;
-
-    if (int(DimensionID.r) != 0) {
-        v_absorbColor = vec3_splat(0.0);
-        v_scatterColor = vec3_splat(1.0);
-    }
-
+    vec3 absorbColor, scatterColor;
+    calcAtmLighting(SunDir.xyz, MoonDir.xyz, SunColor.r, absorbColor, scatterColor);
+    v_absorbColor = absorbColor;
     gl_Position = vec4(a_position.xy * 2.0 - 1.0, a_position.z, 1.0);
 }
 #endif
-#endif
-
-
-
-
+#endif //SHADER_STAGE__VERTEX
 
 ///////////////////////////////////////////////////////////
-// FRAGMENT/PIXEL SHADER
+// FRAGMENT SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_FRAGMENT
+#if SHADER_STAGE__FRAGMENT
 #if FALLBACK_PASS
+out vec4 fragColor;
 void main() {
-    gl_FragColor = vec4_splat(0.0);
+    fragColor = vec4(0.0);
 }
 #else
+uniform vec4 ClampViewVectors;
+uniform vec4 MoonDir;
+uniform vec4 SunDir;
+uniform vec4 DirectionalLightSourceWorldSpaceDirection;
+uniform vec4 Time;
+uniform vec4 WorldOrigin;
+uniform vec4 SkyProbeUVFadeParameters;
+uniform vec4 CurrentFace;
+uniform vec4 SunColor;
+uniform mat4 u_invViewProj;
 
-uniform highp vec4 ClampViewVectors;
-uniform highp vec4 MoonDir;
-uniform highp vec4 SunDir;
-uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
-uniform highp vec4 Time;
-uniform highp vec4 WorldOrigin;
-uniform highp vec4 SkyProbeUVFadeParameters;
-uniform highp vec4 CurrentFace;
+SAMPLER2D(s_SceneDepth);
 
-SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
+#include "lib/clouds.glsl"
+#include "lib/space_transf.glsl"
 
-#include "./lib/common.glsl"
-#include "./lib/atmosphere.glsl"
-#include "./lib/volumetrics.glsl"
+layout(location = 0) flat in vec3 v_absorbColor;
+layout(location = 1) in vec2 v_texcoord0;
+layout(location = 2) in vec2 v_projPos;
 
-vec3 projToWorld(vec3 projPos) {
-    vec4 worldPos = mul(u_invViewProj, vec4(projPos, 1.0));
-    return worldPos.xyz / worldPos.w;
-}
+out vec4 fragColor;
 
 void main() {
     float depth = sampleDepth(s_SceneDepth, v_texcoord0);
+
     vec3 projPos = vec3(v_projPos, depth);
-    vec3 worldPos = projToWorld(projPos);
+    vec3 worldPos = projToWorld(projPos, u_invViewProj);
     vec3 worldDir = normalize(worldPos);
-    if (worldDir.y < 0.1 && ClampViewVectors.x > 0.0) worldDir = normalize(vec3(worldDir.x, 0.1, worldDir.z));
+    if (worldDir.y < 0.1 && ClampViewVectors.x > 0.0)
+        worldDir = normalize(vec3(worldDir.x, 0.1, worldDir.z));
 
-    AtmosphereParams sunAtmParams;
-    sunAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    sunAtmParams.rayDir = worldDir;
-    sunAtmParams.lightDir = SunDir.xyz;
-    sunAtmParams.rayLength = 1e10;
-    sunAtmParams.aerial = 1.0;
-    sunAtmParams.occlusion = 1.0;
-    sunAtmParams.mieMod = 1.0;
+    vec3 outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
 
-    AtmosphereParams moonAtmParams;
-    moonAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    moonAtmParams.rayDir = worldDir;
-    moonAtmParams.lightDir = MoonDir.xyz;
-    moonAtmParams.rayLength = 1e10;
-    moonAtmParams.aerial = 1.0;
-    moonAtmParams.occlusion = 1.0;
-    moonAtmParams.mieMod = 1.0;
-
-    vec3 outColor = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
-    outColor += GetAtmosphere(moonAtmParams) * MOON_MAX_ILLUMINANCE;
-
-    applyCirrusClouds(outColor, worldDir, DirectionalLightSourceWorldSpaceDirection.xyz, v_absorbColor, false);
-
-#ifdef VOLUMETRIC_CLOUDS_ENABLED
-    float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
-    applyCumulusClouds(outColor, v_absorbColor, worldDir, 0.0, dither, false);
-#endif
-
-    applyVolumetricFog(outColor, projPos);
+    vec3 cloudColor = SunDir.y > 0.0 ? v_absorbColor : v_absorbColor * SunColor.r * 0.5;
+    applyCirrusClouds(outColor, worldDir, -WorldOrigin.xyz,
+        DirectionalLightSourceWorldSpaceDirection.xyz, cloudColor, Time.x, false);
 
     if (int(CurrentFace.x) == 3) {
         outColor *= SkyProbeUVFadeParameters.z;
     } else if(int(CurrentFace.x) != 2) {
         float fadeRange = (SkyProbeUVFadeParameters.x - SkyProbeUVFadeParameters.y) + EPSILON;
-        float fade = (clamp(projPos.y * 0.5 + 0.5, SkyProbeUVFadeParameters.y, SkyProbeUVFadeParameters.x) - SkyProbeUVFadeParameters.y) / fadeRange;
+        float fade = (clamp(
+            projPos.y * 0.5 + 0.5,
+            SkyProbeUVFadeParameters.y,
+            SkyProbeUVFadeParameters.x
+        ) - SkyProbeUVFadeParameters.y) / fadeRange;
         outColor *= max(fade, SkyProbeUVFadeParameters.z);
     }
 
-    gl_FragColor = vec4(outColor, 1.0);
+    fragColor = vec4(outColor, 1.0);
 }
-#endif //!FALLBACK_PASS
-#endif //BGFX_SHADER_TYPE_FRAGMENT
+#endif
+#endif //SHADER_STAGE__FRAGMENT

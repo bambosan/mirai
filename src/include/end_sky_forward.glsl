@@ -1,11 +1,12 @@
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
 void main() {
-    gl_Position = vec4_splat(0.0);
+    gl_Position = vec4(0.0);
 }
 #endif
 
-#if BGFX_SHADER_TYPE_FRAGMENT
+#if SHADER_STAGE__FRAGMENT
+out vec4 fragColor;
 void main() {
-    gl_FragColor = vec4_splat(0.0);
+    fragColor = vec4(0.0);
 }
 #endif

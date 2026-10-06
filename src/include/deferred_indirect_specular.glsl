@@ -1,130 +1,122 @@
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
 #if FALLBACK_PASS
 void main() {
-    gl_Position = vec4_splat(0.0);
+    gl_Position = vec4(0.0);
 }
 #else
+in vec3 a_position;
+in vec2 a_texcoord0;
+
+#if DO_INDIRECT_SPECULAR_SHADING_PASS
+layout(location = 1) out vec2 v_projPos;
+#endif
+layout(location = 0) out vec2 v_texcoord0;
+
 void main() {
     v_texcoord0 = a_texcoord0;
+#if DO_INDIRECT_SPECULAR_SHADING_PASS
     v_projPos = a_position.xy * 2.0 - 1.0;
+#endif
     gl_Position = vec4(a_position.xy * 2.0 - 1.0, a_position.z, 1.0);
 }
-#endif //!FALLBACK_PASS
-#endif //BGFX_SHADER_TYPE_VERTEX
-
-
-
-
-///////////////////////////////////////////////////////////
-// FRAGMENT/PIXEL SHADER
-///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_FRAGMENT
-#if FALLBACK_PASS
-void main() {
-    gl_FragColor = vec4_splat(0.0);
-}
 #endif
+#endif //SHADER_STAGE__VERTEX
 
-#if DO_INDIRECT_SPECULAR_SHADING_DUAL_TARGET_PASS || DO_INDIRECT_SPECULAR_SHADING_SINGLE_TARGET_PASS
-uniform highp vec4 FogAndDistanceControl;
-uniform highp vec4 RenderChunkFogAlpha;
-uniform highp vec4 DimensionID;
-uniform highp vec4 WorldOrigin;
-uniform highp vec4 Time;
-
-SAMPLER2D_HIGHP_AUTOREG(s_ColorMetalnessSubsurface);
-USAMPLER2D_AUTOREG(s_EmissiveAmbientLinearRoughness);
-SAMPLER2D_HIGHP_AUTOREG(s_Normal);
-SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
-SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
-SAMPLER2DARRAY_AUTOREG(s_ScatteringBuffer);
-
-#include "./lib/common.glsl"
-#include "./lib/materials.glsl"
-#include "./lib/froxel_util.glsl"
-#include "./lib/clouds.glsl"
-#include "./lib/ibl.glsl"
-
-vec3 projToWorld(vec3 projPos) {
-    vec4 worldPos = mul(u_invViewProj, vec4(projPos, 1.0));
-    return worldPos.xyz / worldPos.w;
+///////////////////////////////////////////////////////////
+// FRAGMENT SHADER
+///////////////////////////////////////////////////////////
+#if SHADER_STAGE__FRAGMENT
+#if FALLBACK_PASS
+out vec4 fragColor;
+void main() {
+    fragColor = vec4(0.0);
 }
+#endif //FALLBACK_PASS
+
+#if DO_INDIRECT_SPECULAR_SHADING_PASS
+uniform vec4 ConvolutionType;
+uniform vec4 IBLParameters;
+uniform vec4 LastSpecularIBLIdx;
+uniform vec4 FogAndDistanceControl;
+uniform vec4 SSRParameters;
+uniform mat4 u_invViewProj;
+
+SAMPLER2D(s_ColorMetalnessSubsurface);
+SAMPLER2D(s_Normal);
+SAMPLER2D(s_PreviousFrameAverageLuminance);
+SAMPLER2D(s_SceneDepth);
+USAMPLER2D(s_EmissiveAmbientLinearRoughness);
+
+#include "lib/materials.glsl"
+#include "lib/ibl.glsl"
+#include "lib/space_transf.glsl"
+
+layout(location = 0) in vec2 v_texcoord0;
+layout(location = 1) in vec2 v_projPos;
+
+out vec4 fragColor;
 
 void main() {
     float depth = sampleDepth(s_SceneDepth, v_texcoord0);
-    vec3 projPos = vec3(v_projPos, depth);
-    vec3 worldPos = projToWorld(projPos);
-    vec3 worldDir = normalize(worldPos);
-
-    bool isOverworld = int(DimensionID.r) == 0;
-    bool isCameraInsideWater = FogAndDistanceControl.r < EPSILON;
-    bool isNeedReflection = !isCameraInsideWater && isOverworld;
-
-    //materials data from gbuffers
-    uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
-    vec4 blightColor = vec4(data16.g >> 8, data16.g & 0xFFu, data16.b >> 8, data16.b & 0xFFu) / 255.0;
-    float skyLightmap = float(data16.a & 0xFFu) / 255.0;
-    float roughness = float(data16.r >> 8) / 255.0;
-    vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
-    float metalness = unpackMetalness(data.a);
-    vec3 albedo = toLinear(data.rgb);
-    vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
-
-    vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
-    if (all(lessThan(data, vec4_splat(EPSILON)))) { //water
-        f0 = isCameraInsideWater ? vec3_splat(1.0) * smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))) : vec3_splat(0.04);
-    }
-
-    float exposure = texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r;
-
-    vec3 blockAmbient = blightColor.rgb * blightColor.a * 6.0;
-    vec3 outColor = vec3_splat(0.0);
+    vec3 outColor = vec3(0.0);
 
     if (depth < 1.0) {
-        outColor = indirectSpecular(f0, worldDir, normal, blockAmbient, v_texcoord0, roughness, metalness, skyLightmap, exposure, isNeedReflection);
+        vec3 projPos = vec3(v_projPos, depth);
+        vec3 worldPos = projToWorld(projPos, u_invViewProj);
+        vec3 worldDir = normalize(worldPos);
 
-        float worldDist = length(worldPos);
-        float wDistNorm = worldDist / FogAndDistanceControl.z;
-        float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
-        if (!isOverworld) outColor = outColor * saturate(1.0 - borderFog);
+        uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness,
+            ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
+        float skyLightmap = float(data16.a & 0xFFu) * (1.0 / 255.0);
+        float roughness = float(data16.r >> 8) * (1.0 / 255.0);
+        float vanillaAO = float(data16.a >> 8) * (1.0 / 255.0);
 
-#ifdef VOLUMETRIC_CLOUDS_ENABLED
-        float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
-        CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
-        float cloudTransmittance = calcCloudTransmittanceOnly(worldDir, wDistNorm, dither, true, cloudSetup);
-        outColor *= cloudTransmittance;
-#endif
+        vec4 data = texture(s_ColorMetalnessSubsurface, v_texcoord0);
+        float metalness = unpackMetalness(data.a);
+        vec3 albedo = toLinear(data.rgb);
+        vec3 f0 = mix(DEFAULT_F0, albedo, metalness);
 
-        if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
+        vec3 normal = octToNdirSnorm(texture(s_Normal, v_texcoord0).rg);
 
-        vec3 uvw = ndcToVolume(projPos);
-        vec4 volumetricFog = sampleVolume(s_ScatteringBuffer, uvw);
-        if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) outColor *= volumetricFog.a;
+        float exposure = texture(s_PreviousFrameAverageLuminance, vec2(0.5)).r;
 
-        outColor = preExposeLighting(outColor.rgb, exposure);
+        if (!(FogAndDistanceControl.r < EPSILON)) {
+            float occluder = linearstep(0.85, 1.0, skyLightmap) * vanillaAO * vanillaAO;
+            outColor = indirectSpecular(
+                IBLParameters,
+                SSRParameters,
+                f0,
+                worldDir,
+                normal,
+                v_texcoord0,
+                ConvolutionType.r,
+                LastSpecularIBLIdx.r,
+                roughness,
+                occluder,
+                exposure
+            );
+        }
+        outColor = preExposeLighting(outColor.rgb * EXPOSURE_MULTIPLIER, exposure);
     }
 
-#if DO_INDIRECT_SPECULAR_SHADING_SINGLE_TARGET_PASS
-    gl_FragColor = vec4(outColor, 1.0);
-#else
-    gl_FragData[0] = vec4(outColor, 1.0);
-    gl_FragData[1] = vec4_splat(0.0);
-#endif
+    fragColor = vec4(outColor, 1.0);
 }
-
-#endif //DO_INDIRECT_SPECULAR_SHADING_DUAL_TARGET_PASS || DO_INDIRECT_SPECULAR_SHADING_SINGLE_TARGET_PASS
+#endif //DO_INDIRECT_SPECULAR_SHADING_PASS
 
 #if DO_INDIRECT_SPECULAR_UPSCALE_PASS
-SAMPLER2D_HIGHP_AUTOREG(s_SpecularLighting);
-SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
+SAMPLER2D(s_SpecularLighting);
+SAMPLER2D(s_SceneDepth);
+
+layout(location = 0) in vec2 v_texcoord0;
+out vec4 fragColor;
 
 void main() {
-    gl_FragColor = vec4_splat(0.0);
-    if (texture2D(s_SceneDepth, v_texcoord0).r < 1.0) gl_FragColor.rgb = texture2D(s_SpecularLighting, v_texcoord0).rgb;
+    fragColor = vec4(0.0);
+    if (texture(s_SceneDepth, v_texcoord0).r < 1.0)
+        fragColor.rgb = texture(s_SpecularLighting, v_texcoord0).rgb;
 }
 #endif //DO_INDIRECT_SPECULAR_UPSCALE_PASS
-
-#endif //BGFX_SHADER_TYPE_FRAGMENT
+#endif //SHADER_STAGE__FRAGMENT

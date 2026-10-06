@@ -1,143 +1,226 @@
-#ifndef ATMOSPHERE_INCLUDE
-#define ATMOSPHERE_INCLUDE
+#ifndef ATMOSPHERE_INCLUDED
+#define ATMOSPHERE_INCLUDED
 
-// Fast semi-physical atmosphere with aerial perspective.
+#include "common.glsl"
+
+// Fast atmosphere
 // https://www.shadertoy.com/view/4XffzH
 
-// Config
-#define AERIAL_SCALE 1.0 // Higher value = more aerial perspective. A value of 1 is tuned to match reference implementation.
-
-// Atmosphere parameters (physical)
-#define ATMOSPHERE_HEIGHT  100000.0
+#define AERIAL_SCALE 1.0
+#define ATMOSPHERE_HEIGHT 100000.0
 #define ATMOSPHERE_DENSITY 1.0
-#define PLANET_RADIUS      6371000.0
-#define PLANET_CENTER      vec3(0, -PLANET_RADIUS, 0)
-#define C_RAYLEIGH         vec3(5.802e-6, 13.558e-6, 33.100e-6)
-#define C_MIE              vec3(3.996e-6, 3.996e-6, 3.996e-6)
-#define C_OZONE            vec3(0.650e-6, 1.881e-6, 0.085e-6)
-
-// Atmosphere parameters (approximation)
-#define RAYLEIGH_MAX_LUM   2.5
-#define MIE_MAX_LUM        0.5
-
-// Magic numbers
-#define M_EXPOSURE_MUL        0.23
-#define M_FAKE_MS             0.3
-#define M_AERIAL              2.5
-#define M_TRANSMITTANCE       0.25
+#define PLANET_RADIUS 6371000.0
+#define PLANET_CENTER vec3(0, -PLANET_RADIUS, 0)
+#define RAYLEIGH_MAX_LUM 2.5
+#define MIE_MAX_LUM 0.5
+#define M_EXPOSURE 0.25
+#define M_FAKE_MS 0.3
+#define M_AERIAL 2.5
 #define M_LIGHT_TRANSMITTANCE 1e6
-#define M_DENSITY_HEIGHT_MOD  1e-12
-#define M_DENSITY_CAM_MOD     10.0
-#define M_OZONE               1.5
-#define M_OZONE2              5.0
+#define M_DENSITY_HEIGHT_MOD 1e-12
+#define M_DENSITY_CAM_MOD 10.0
+#define M_OZONE 5.0
 
-// https://iquilezles.org/articles/intersectors/
-vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sphereRadius) {
-    vec3 oc = rayStart - sphereCenter;
-    float b = dot(oc, rayDir);
-    float c = dot(oc, oc) - pow2(sphereRadius);
-    float h = pow2(b) - c;
-    if (h < 0.0) {
-        return vec2(-1.0, -1.0);
-    } else {
-        h = sqrt(h);
-        return vec2(-b-h, -b+h);
-    }
-}
-
-vec3 GetLightTransmittance(vec3 lightDir, float multiplier, float ozoneMultiplier) {
-    float lightExtinctionAmount = exp(-(saturate(lightDir.y + 0.03) * 40.0)) + exp(-(saturate(lightDir.y + 0.3) * 5.0)) * 0.4 + pow2(saturate(1.0-lightDir.y)) * 0.02 + 0.002;
-    return exp(-(C_RAYLEIGH + C_MIE + C_OZONE * ozoneMultiplier) * lightExtinctionAmount * ATMOSPHERE_DENSITY * multiplier * M_LIGHT_TRANSMITTANCE);
-}
-
-vec3 GetSunTransmittance(vec3 sunDir) {
-    return GetLightTransmittance(sunDir, 1.0, 1.0);
-}
-
-vec3 GetMoonTransmittance(vec3 moonDir) {
-    return saturation(GetLightTransmittance(moonDir, 1.0, 1.0), 0.25);
-}
+#define CAM_ALTITUDE 100.0
 
 struct AtmosphereParams {
-    vec3 rayStart;
+    vec3 cRayleigh;
+    vec3 cMie;
+    vec3 cOzone;
     vec3 rayDir;
     vec3 lightDir;
     float rayLength;
     float aerial;
     float occlusion;
-    float mieMod;
+    float rain;
 };
 
-// Main atmosphere function
-vec3 GetAtmosphere(AtmosphereParams params, out vec4 transmittance) {
-    // Planet and atmosphere intersection to get optical depth
-    vec2 t1 = SphereIntersection(params.rayStart, params.rayDir, PLANET_CENTER, PLANET_RADIUS);
-    vec2 t2 = SphereIntersection(params.rayStart, params.rayDir, PLANET_CENTER, PLANET_RADIUS + ATMOSPHERE_HEIGHT);
+struct AtmosphericScattering {
+    float opticalDepth;
+    float densityR;
+    float densityM;
+    vec3 lightDir;
+    vec3 lightColor;
+    vec3 R;
+    vec3 M;
+    vec3 scattering;
+};
 
-    float altitude = params.rayStart.y;
-    float normAltitude = params.rayStart.y / ATMOSPHERE_HEIGHT;
-
-    if (t2.y < 0.0) {
-        // Outside of atmosphere looking into space, return nothing
-        transmittance = vec4(1.0, 1.0, 1.0, 1.0);
-        return vec3(0.0, 0.0, 0.0);
-    } else {
-        // In case camera is outside of atmosphere, subtract distance to entry.
-        t2.y -= max(0.0, t2.x);
-
-        float opticalDepth = t2.y;
-        // Optical depth modulators
-        opticalDepth = min(params.rayLength, opticalDepth);
-        opticalDepth = min(opticalDepth * params.aerial * M_AERIAL * AERIAL_SCALE, t2.y);
-
-        // Altitude-based density modulators
-        float hbias = 1.0 - 1.0 / (2.0 + pow2(t2.y) * M_DENSITY_HEIGHT_MOD);
-        hbias = pow(hbias, 1.0 + normAltitude * M_DENSITY_CAM_MOD); // Really need a pow here, bleh
-        float sqhbias = pow2(hbias);
-        float densityR = sqhbias * ATMOSPHERE_DENSITY;
-        float densityM = pow2(sqhbias) * hbias * ATMOSPHERE_DENSITY;
-
-        // Apply light transmittance (makes sky red as sun approaches horizon)
-        float ly = params.lightDir.y;
-        ly += saturate(-params.lightDir.y + 0.02) * saturate(params.lightDir.y + 0.7);
-        ly = clamp(ly, -1.0, 1.0);
-        vec3 lightColor = GetLightTransmittance(vec3(params.lightDir.x, ly, params.lightDir.z), hbias, M_OZONE2);
-
-        // Approximate marched Rayleigh + Mie scattering with some exp magic.
-        vec3 R = (1.0 - exp(-opticalDepth * densityR * C_RAYLEIGH / RAYLEIGH_MAX_LUM)) * RAYLEIGH_MAX_LUM;
-        vec3 M = (1.0 - exp(-opticalDepth * densityM * C_MIE / MIE_MAX_LUM)) * MIE_MAX_LUM;
-        vec3 E = (C_RAYLEIGH * densityR + C_MIE * densityM + C_OZONE * densityR * M_OZONE) * pow4(1.0 - normAltitude) * M_TRANSMITTANCE;
-
-        float costh = dot(params.rayDir, params.lightDir);
-        float phaseR = PhaseR(costh);
-        float phaseM = PhaseHG(costh, 0.8);
-
-        // Combined scattering
-        float desaturate = smoothstep(0.0, 0.1, params.lightDir.y) * 0.75 + 0.25;
-        vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS) * saturation(lightColor, desaturate);
-        vec3 mie = (phaseM * params.occlusion + phaseR * M_FAKE_MS) * lightColor * params.mieMod;
-        vec3 scattering = mie * M + rayleigh * R;
-
-        // View extinction, matched to reference
-        transmittance.rgb = exp(-(opticalDepth + pow8(opticalDepth * 4.5e-6)) * E);
-        transmittance.rgb = saturation(transmittance.rgb, desaturate);
-        // Store planet intersection flag in transmittance.w, useful for occluding clouds, celestial bodies etc.
-        transmittance.a = step(t1.x, 0.0);
-
-        // Darken planet
-        if (t1.y > 0.0 && t1.y < params.rayLength) {
-            float planetOpticalDepth = t1.y - max(0.0, t1.x);
-            float skyWeight = exp(-planetOpticalDepth * 1e-6);
-            scattering *= mix(vec3(0.2, 0.3, 0.4), vec3(1.0, 1.0, 1.0), skyWeight);
-        }
-
-        return scattering * M_EXPOSURE_MUL;
-    }
+vec3 calcLightTransmittance(
+    vec3 lightDir,
+    vec3 cRayleigh,
+    vec3 cMie,
+    vec3 cOzone,
+    float multiplier
+) {
+    float lightExtinctionAmount = exp(-(clamp(lightDir.y + 0.05, 0.0, 1.0) * 40.0))
+        + exp(-(clamp(lightDir.y + 0.3, 0.0, 1.0) * 5.0)) * 0.4
+        + pow(clamp(1.0 - lightDir.y, 0.0, 1.0), 2.0) * 0.02;
+    return exp(-(cRayleigh + cMie + cOzone)
+        * lightExtinctionAmount
+        * ATMOSPHERE_DENSITY
+        * multiplier
+        * M_LIGHT_TRANSMITTANCE);
 }
 
-vec3 GetAtmosphere(AtmosphereParams params) {
-    vec4 transmittance;
-    return GetAtmosphere(params, transmittance);
+AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t1, vec2 t2) {
+    AtmosphericScattering atm;
+
+    t2.y -= max(0.0, t2.x);
+    atm.opticalDepth = t1.x > 0.0 ? min(t1.x, t2.y) * 50.0 : t2.y;
+    atm.opticalDepth = min(params.rayLength, atm.opticalDepth);
+    atm.opticalDepth = min(atm.opticalDepth
+        * params.aerial * M_AERIAL * AERIAL_SCALE, t2.y);
+
+    float hbias = 1.0 - 1.0 / (2.0 + t2.y * t2.y * M_DENSITY_HEIGHT_MOD);
+    hbias = pow(hbias, 1.0 + CAM_ALTITUDE / ATMOSPHERE_HEIGHT * M_DENSITY_CAM_MOD);
+    atm.densityR = hbias * hbias * ATMOSPHERE_DENSITY;
+    atm.densityM = pow(hbias, 5.0) * ATMOSPHERE_DENSITY;
+
+    float ly = clamp(params.lightDir.y
+        + clamp(-params.lightDir.y + 0.02, 0.0, 1.0)
+        * clamp(params.lightDir.y + 0.7, 0.0, 1.0), -1.0, 1.0);
+    atm.lightDir = vec3(params.lightDir.x, ly, params.lightDir.z);
+    atm.lightColor = calcLightTransmittance(
+        atm.lightDir,
+        params.cRayleigh,
+        params.cMie,
+        params.cOzone,
+        hbias
+    );
+    atm.R = (1.0 - exp(-atm.opticalDepth
+        * atm.densityR
+        * params.cRayleigh / RAYLEIGH_MAX_LUM)) * RAYLEIGH_MAX_LUM;
+    atm.M = (1.0 - exp(-atm.opticalDepth
+        * atm.densityM
+        * params.cMie / MIE_MAX_LUM)) * MIE_MAX_LUM;
+
+    float costh = dot(params.rayDir, params.lightDir);
+    float phaseR = phase(costh, 0.0, 1.0);
+    float phaseM = phase(costh, 0.8, 0.0);
+
+    float desaturate = smoothstep(0.0, 0.1, params.lightDir.y) * 0.75 + 0.25;
+    vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS)
+        * saturation(atm.lightColor, desaturate);
+    vec3 mie = (phaseM * params.occlusion + phaseR * M_FAKE_MS) * atm.lightColor;
+    atm.scattering = mie * atm.M + rayleigh * atm.R;
+
+    return atm;
+}
+
+vec3 calcAtmosphere(AtmosphereParams params, out vec4 transmittance) {
+    vec2 t1 = sphereIntersect(
+        vec3(0.0, CAM_ALTITUDE, 0.0),
+        params.rayDir,
+        PLANET_CENTER,
+        PLANET_RADIUS
+    );
+    vec2 t2 = sphereIntersect(
+        vec3(0.0, CAM_ALTITUDE, 0.0),
+        params.rayDir,
+        PLANET_CENTER,
+        PLANET_RADIUS + ATMOSPHERE_HEIGHT
+    );
+    if (t2.y < 0.0) {
+        transmittance = vec4(1.0);
+        return vec3(0.0);
+    }
+
+    AtmosphericScattering atm = calcAtmosphereScattering(params, t1, t2);
+    atm.densityR = pow(atm.densityR, 2.5);
+    transmittance.rgb = exp(-atm.opticalDepth * (params.cRayleigh
+        * atm.densityR
+        + params.cMie
+        * atm.densityM
+        + params.cOzone
+        * atm.densityR));
+    transmittance.a = step(t1.x, 0.0);
+
+    return atm.scattering * M_EXPOSURE;
+}
+
+vec3 calcAtmosphere(AtmosphereParams params) {
+    vec2 t1 = sphereIntersect(
+        vec3(0.0, CAM_ALTITUDE, 0.0),
+        params.rayDir,
+        PLANET_CENTER,
+        PLANET_RADIUS
+    );
+    vec2 t2 = sphereIntersect(
+        vec3(0.0, CAM_ALTITUDE, 0.0),
+        params.rayDir,
+        PLANET_CENTER,
+        PLANET_RADIUS + ATMOSPHERE_HEIGHT
+    );
+    if (t2.y < 0.0) return vec3(0.0);
+
+    AtmosphericScattering atm = calcAtmosphereScattering(params, t1, t2);
+    return atm.scattering * M_EXPOSURE;
+}
+
+// what is this?!
+void atmConstant(float rain, out vec3 cRayleigh, out vec3 cMie, out vec3 cOzone) {
+    cRayleigh = mix(vec3(13.558e-6), vec3(5.802e-6, 13.558e-6, 33.100e-6), rain);
+    cMie = mix(vec3(3.996e-6) * 10.0, vec3(3.996e-6), rain);
+    cOzone = vec3(0.650e-6, 1.881e-6, 0.085e-6) * M_OZONE * rain;
+}
+
+vec3 calcAtmSky(vec3 worldDir, vec3 sunDir, vec3 moonDir, float rain) {
+    vec3 cRayleigh, cMie, cOzone;
+    atmConstant(rain, cRayleigh, cMie, cOzone);
+
+    AtmosphereParams sunAtmParams = AtmosphereParams(
+        cRayleigh,
+        cMie,
+        cOzone,
+        worldDir,
+        sunDir,
+        1e10,
+        1.0,
+        1.0,
+        rain
+    );
+
+    AtmosphereParams moonAtmParams = sunAtmParams;
+    moonAtmParams.lightDir = moonDir;
+    moonAtmParams.occlusion = 0.0;
+
+    vec3 scattering = calcAtmosphere(sunAtmParams) * SUN_RADIANCE_MULTIPLIER;
+    scattering += luminance(calcAtmosphere(moonAtmParams)) * MOON_RADIANCE_MULTIPLIER;
+    return scattering;
+}
+
+void calcAtmLighting(
+    vec3 sunDir,
+    vec3 moonDir,
+    float rain,
+    out vec3 absorbColor,
+    out vec3 scatterColor
+) {
+    vec3 cRayleigh, cMie, cOzone;
+    atmConstant(rain, cRayleigh, cMie, cOzone);
+
+    AtmosphereParams sunAtmParams = AtmosphereParams(
+        cRayleigh,
+        cMie,
+        cOzone,
+        vec3(0.0, 1.0, 0.0),
+        sunDir,
+        1e10,
+        1.0,
+        1.0,
+        rain
+    );
+
+    AtmosphereParams moonAtmParams = sunAtmParams;
+    moonAtmParams.lightDir = moonDir;
+
+    absorbColor = calcLightTransmittance(sunDir.xyz, cRayleigh, cMie, cOzone, 0.75)
+        * smoothstep(0.0, 0.1, sunDir.y) * SUN_RADIANCE_MULTIPLIER;
+    absorbColor += calcLightTransmittance(moonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
+        * smoothstep(0.0, 0.1, moonDir.y) * MOON_RADIANCE_MULTIPLIER;
+
+    scatterColor = calcAtmosphere(sunAtmParams) * SUN_RADIANCE_MULTIPLIER;
 }
 
 #endif

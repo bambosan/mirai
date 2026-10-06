@@ -1,122 +1,122 @@
-// deobfuscated from vanilla material and modified to remove black squares bug
-
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
 uniform vec4 ViewportScale;
+
+in vec3 a_position;
+in vec2 a_texcoord0;
+
+out vec2 v_texcoord0;
+
 void main() {
     v_texcoord0 = a_texcoord0 * ViewportScale.xy;
     gl_Position = vec4(a_position.xy * 2.0 - 1.0, 0.0, 1.0);
 }
 #endif
 
-
-
 ///////////////////////////////////////////////////////////
-// FRAGMENT/PIXEL SHADER
+// FRAGMENT SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_FRAGMENT
-uniform highp vec4 ViewportScale;
-uniform highp vec4 BloomParams;
+// https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
+///////////////////////////////////////////////////////////
+#if SHADER_STAGE__FRAGMENT
+uniform vec4 ViewportScale;
+uniform vec4 BloomParams;
 
 #if BLOOM_BLEND_PASS
-SAMPLER2D_HIGHP_AUTOREG(s_HDRi);
+SAMPLER2D(s_HDRi);
 #endif
+SAMPLER2D(s_BlurPyramidTexture);
 
-#if THRESHOLDED_DOWN_SAMPLE_PASS
-SAMPLER2D_HIGHP_AUTOREG(s_AverageLuminance);
-#endif
+#include "lib/common.glsl"
 
-SAMPLER2D_HIGHP_AUTOREG(s_BlurPyramidTexture);
+in vec2 v_texcoord0;
 
-#include "./lib/common.glsl"
+out vec4 fragColor;
 
 void main() {
     vec2 uv = (floor(ViewportScale.zw * ViewportScale.xy) - 0.5) / ViewportScale.zw;
 
+#if BLOOM_BLEND_PASS || DF_UP_SAMPLE_PASS
+    vec2 o = ViewportScale.xy / ViewportScale.zw;
+
+    // Take 9 samples around current texel:
+    // a - b - c
+    // d - e - f
+    // g - h - i
+    // === ('e' is the current texel) ===
+    vec3 a = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-o.x,  o.y), uv)).rgb;
+    vec3 b = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2( 0.0,  o.y), uv)).rgb;
+    vec3 c = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2( o.x,  o.y), uv)).rgb;
+
+    vec3 d = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-o.x,  0.0), uv)).rgb;
+    vec3 e = texture(s_BlurPyramidTexture, min(v_texcoord0, uv)).rgb;
+    vec3 f = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2( o.x,  0.0), uv)).rgb;
+
+    vec3 g = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-o.x, -o.y), uv)).rgb;
+    vec3 h = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2( 0.0, -o.y), uv)).rgb;
+    vec3 i = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2( o.x, -o.y), uv)).rgb;
+
+    // Apply weighted distribution, by using a 3x3 tent filter:
+    //  1   | 1 2 1 |
+    // -- * | 2 4 2 |
+    // 16   | 1 2 1 |
+    vec3 bloom = e * 0.25 + (a + c + g + i) * 0.0625 + (b + d + f + h) * 0.125;
+
 #if BLOOM_BLEND_PASS
-    vec2 ofs = (ViewportScale.xy * 4.0) * (vec2_splat(0.5) / ViewportScale.zw);
-
-    vec4 sample1 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.5 * ofs.x, 0.5 * ofs.y), uv));
-    vec4 sample2 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-0.5 * ofs.x, 0.5 * ofs.y), uv));
-    vec4 sample3 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.5 * ofs.x, -0.5 * ofs.y), uv));
-    vec4 sample4 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-0.5 * ofs.x, -0.5 * ofs.y), uv));
-    vec4 sample5 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, ofs.y), uv));
-    vec4 sample6 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, ofs.y), uv));
-    vec4 sample7 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, -ofs.y), uv));
-    vec4 sample8 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, -ofs.y), uv));
-
-    vec4 bloom = (sample1 * 0.16) + (sample2 * 0.16) + (sample3 * 0.16) + (sample4 * 0.16) + (sample5 * 0.083) + (sample6 * 0.083) + (sample7 * 0.083) + (sample8 * 0.083);
-
-    vec3 outColor = texture2D(s_HDRi, v_texcoord0).rgb + bloom.rgb * BloomParams.r;
-
-    gl_FragColor = vec4(outColor, 1.0);
+    vec3 baseColor = texture(s_HDRi, v_texcoord0).rgb;
+    fragColor = vec4(baseColor + bloom * BloomParams.r, 1.0);
+#else
+    fragColor = vec4(bloom, 1.0);
+#endif
 #endif
 
-#if DF_DOWN_SAMPLE_PASS
-    vec2 ofs = (ViewportScale.xy * 1.5) * (vec2_splat(2.0) / ViewportScale.zw);
+#if DF_DOWN_SAMPLE_PASS || THRESHOLDED_DOWN_SAMPLE_PASS
+    vec2 o = 1.0 / ViewportScale.zw;
 
-    vec4 sample0 = texture2D(s_BlurPyramidTexture, min(v_texcoord0, uv));
-    vec4 sample1 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, ofs.y), uv));
-    vec4 sample2 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, ofs.y), uv));
-    vec4 sample3 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, -ofs.y), uv));
-    vec4 sample4 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, -ofs.y), uv));
+    // Take 13 samples around current texel:
+    // a - b - c
+    // - j - k -
+    // d - e - f
+    // - l - m -
+    // g - h - i
+    // === ('e' is the current texel) ===
+    vec3 a = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-2.0 * o.x, 2.0 * o.y), uv)).rgb;
+    vec3 b = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.0, 2.0 * o.y), uv)).rgb;
+    vec3 c = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(2.0 * o.x, 2.0 * o.y), uv)).rgb;
 
-    vec4 outColor = (sample0 * 0.5) + (sample1 * 0.125) + (sample2 * 0.125) + (sample3 * 0.125) + (sample4 * 0.125);
-    outColor.rgb = max(outColor.rgb, vec3_splat(EPSILON));
+    vec3 d = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-2.0 * o.x, 0.0), uv)).rgb;
+    vec3 e = texture(s_BlurPyramidTexture, min(v_texcoord0, uv)).rgb;
+    vec3 f = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(2.0 * o.x, 0.0), uv)).rgb;
 
-    gl_FragColor = outColor;
-#endif
+    vec3 g = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-2.0 * o.x, -2.0 * o.y), uv)).rgb;
+    vec3 h = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.0, -2.0 * o.y), uv)).rgb;
+    vec3 i = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(2.0 * o.x, -2.0 * o.y), uv)).rgb;
 
-#if DF_UP_SAMPLE_PASS
-    vec2 ofs = (ViewportScale.xy * 4.0) * (vec2_splat(0.5) / ViewportScale.zw);
+    vec3 j = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-o.x, o.y), uv)).rgb;
+    vec3 k = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(o.x, o.y), uv)).rgb;
+    vec3 l = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-o.x, -o.y), uv)).rgb;
+    vec3 m = texture(s_BlurPyramidTexture, min(v_texcoord0 + vec2(o.x, -o.y), uv)).rgb;
 
-    vec4 sample1 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.5 * ofs.x, 0.5 * ofs.y), uv));
-    vec4 sample2 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-0.5 * ofs.x, 0.5 * ofs.y), uv));
-    vec4 sample3 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(0.5 * ofs.x, -0.5 * ofs.y), uv));
-    vec4 sample4 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-0.5 * ofs.x, -0.5 * ofs.y), uv));
-    vec4 sample5 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, ofs.y), uv));
-    vec4 sample6 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, ofs.y), uv));
-    vec4 sample7 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, -ofs.y), uv));
-    vec4 sample8 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, -ofs.y), uv));
+    // Apply weighted distribution:
+    // 0.5 + 0.125 + 0.125 + 0.125 + 0.125 = 1
+    // a,b,d,e * 0.125
+    // b,c,e,f * 0.125
+    // d,e,g,h * 0.125
+    // e,f,h,i * 0.125
+    // j,k,l,m * 0.5
+    // This shows 5 square areas that are being sampled. But some of them overlap,
+    // so to have an energy preserving downsample we need to make some adjustments.
+    // The weights are the distributed, so that the sum of j,k,l,m (e.g.)
+    // contribute 0.5 to the final color output. The code below is written
+    // to effectively yield this sum. We get:
+    // 0.125*5 + 0.03125*4 + 0.0625*4 = 1
+    vec3 outColor = e * 0.125 + (a + c + g + i) * 0.03125 + (b + d + f + h) * 0.0625
+        +  (j + k + l + m) * 0.125;
 
-    vec4 outColor = (sample1 * 0.16) + (sample2 * 0.16) + (sample3 * 0.16) + (sample4 * 0.16) + (sample5 * 0.083) + (sample6 * 0.083) + (sample7 * 0.083) + (sample8 * 0.083);
-    outColor.rgb = max(outColor.rgb, vec3_splat(EPSILON));
-
-    gl_FragColor = outColor;
-#endif
-
-#if THRESHOLDED_DOWN_SAMPLE_PASS
-    vec2 ofs = (ViewportScale.xy * 1.5) * (vec2_splat(2.0) / ViewportScale.zw);
-
-    float brightnessThreshold = BloomParams.y * texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
-
-    vec4 sample0 = texture2D(s_BlurPyramidTexture, min(v_texcoord0, uv));
-    float luminance0 = luminance(sample0.rgb);
-    vec4 maskedCenter = sample0 * step(brightnessThreshold, luminance0);
-
-    vec4 sample1 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(ofs.x, ofs.y), uv));
-    float luminance1 = luminance(sample1.rgb);
-    vec4 maskedSample1 = sample1 * step(brightnessThreshold, luminance1);
-
-    vec4 sample2 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, ofs.y), uv));
-    float luminance2 = luminance(sample2.rgb);
-    vec4 maskedSample2 = sample2 * step(brightnessThreshold, luminance2);
-
-    vec4 sample3 = texture2D(s_BlurPyramidTexture,  min(v_texcoord0 + vec2(ofs.x, -ofs.y), uv));
-    float luminance3 = luminance(sample3.rgb);
-    vec4 maskedSample3 = sample3 * step(brightnessThreshold, luminance3);
-
-    vec4 sample4 = texture2D(s_BlurPyramidTexture, min(v_texcoord0 + vec2(-ofs.x, -ofs.y), uv));
-    float luminance4 = luminance(sample4.rgb);
-    vec4 maskedSample4 = sample4 * step(brightnessThreshold, luminance4);
-
-    vec4 outColor = (maskedCenter * 0.5) + (maskedSample1 * 0.125) + (maskedSample2 * 0.125) + (maskedSample3 * 0.125) + (maskedSample4 * 0.125);
-    outColor.rgb = max(outColor.rgb, vec3_splat(EPSILON));
-
-    gl_FragColor = outColor;
+    outColor = max(outColor, vec3(EPSILON));
+    fragColor = vec4(outColor, 1.0);
 #endif
 }
-
-#endif // BGFX_SHADER_TYPE_FRAGMENT
+#endif

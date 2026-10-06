@@ -1,36 +1,34 @@
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
+in vec3 a_position;
+in vec2 a_texcoord0;
+
+out vec2 v_texcoord0;
+
 void main() {
     v_texcoord0 = a_texcoord0;
     gl_Position = vec4(a_position.xy * 2.0 - 1.0, 0.0, 1.0);
 }
 #endif
 
-
-
-
 ///////////////////////////////////////////////////////////
-// FRAGMENT/PIXEL SHADER
+// FRAGMENT SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_FRAGMENT
-uniform highp vec4 TonemapParams0;
-uniform highp vec4 ExposureCompensation;
-uniform highp vec4 LuminanceMinMaxAndWhitePointAndMinWhitePoint;
+#if SHADER_STAGE__FRAGMENT
+uniform vec4 ExposureCompensation;
+uniform vec4 LuminanceMinMaxAndWhitePointAndMinWhitePoint;
 
-SAMPLER2D_HIGHP_AUTOREG(s_ColorTexture);
-SAMPLER2D_HIGHP_AUTOREG(s_PreExposureLuminance);
-SAMPLER2D_HIGHP_AUTOREG(s_AverageLuminance);
-SAMPLER2D_HIGHP_AUTOREG(s_CustomExposureCompensation);
-SAMPLER2D_HIGHP_AUTOREG(s_RasterizedColor);
+SAMPLER2D(s_ColorTexture);
+SAMPLER2D(s_PreExposureLuminance);
+SAMPLER2D(s_AverageLuminance);
+SAMPLER2D(s_CustomExposureCompensation);
+SAMPLER2D(s_RasterizedColor);
 
-#include "./lib/common.glsl"
+#include "lib/common.glsl"
 
-// Minimal AgX approximation
 // https://iolite-engine.com/blog_posts/minimal_agx_implementation
-
-// Mean error^2: 1.85907662e-06
 vec3 agxDefaultContrastApprox(vec3 x) {
     vec3 x2 = x * x;
     vec3 x4 = x2 * x2;
@@ -47,99 +45,48 @@ vec3 agxDefaultContrastApprox(vec3 x) {
 }
 
 vec3 agx(vec3 val) {
-    mat3 agx_mat = mtxFromCols(
-        vec3(0.842479062253094, 0.0423282422610123, 0.0423756549057051),
-        vec3(0.0784335999999992, 0.878468636469772, 0.0784336),
-        vec3(0.0792237451477643, 0.0791661274605434, 0.879142973793104)
+    const float min_ev = -12.47393;
+    const float max_ev = 4.026069;
+
+    const mat3 agx_mat = mat3(
+        0.842479062253094, 0.0423282422610123, 0.0423756549057051,
+        0.0784335999999992, 0.878468636469772, 0.0784336,
+        0.0792237451477643, 0.0791661274605434, 0.879142973793104
     );
 
-    CONST(float) min_ev = -12.47393;
-    CONST(float) max_ev = 4.026069;
+    const mat3 agx_mat_inv = mat3(
+        1.19687900512017, -0.0528968517574562, -0.0529716355144438,
+        -0.0980208811401368, 1.15190312990417, -0.0980434501171241,
+        -0.0990297440797205, -0.0989611768448433, 1.15107367264116
+    );
 
-    // Input transform (inset)
-    val = mul(agx_mat, val);
+    val = agx_mat * val;
 
-    // Log2 space encoding
     val = clamp(log2(val), min_ev, max_ev);
     val = (val - min_ev) / (max_ev - min_ev);
-
-    // Apply sigmoid function approximation
     val = agxDefaultContrastApprox(val);
+
+    val = agx_mat_inv * val;
     return val;
 }
 
-vec3 agxEotf(vec3 val) {
-    mat3 agx_mat_inv = mtxFromCols(
-        vec3(1.19687900512017, -0.0528968517574562, -0.0529716355144438),
-        vec3(-0.0980208811401368, 1.15190312990417, -0.0980434501171241),
-        vec3(-0.0990297440797205, -0.0989611768448433, 1.15107367264116)
-    );
-
-    // Inverse input transform (outset)
-    val = mul(agx_mat_inv, val);
-
-    // sRGB IEC 61966-2-1 2.2 Exponent Reference EOTF Display
-    // NOTE: We're linearizing the output here. Comment/adjust when
-    // *not* using a sRGB render target
-    // val = pow(val, vec3(2.2));
-    return val;
-}
-
-vec3 agxLook(vec3 val) {
-    vec3 offset = vec3_splat(0.0);
-    vec3 slope = vec3_splat(1.0);
-    vec3 power = vec3_splat(1.35);
-    float sat = 1.0;
-
-    // ASC CDL
-    val = pow(val * slope + offset, power);
-    float luma = dot(val, vec3(0.2126, 0.7152, 0.0722));
-    return luma + sat * (val - luma);
-}
+in vec2 v_texcoord0;
+out vec4 fragColor;
 
 void main() {
-    vec3 inputColor = texture2D(s_ColorTexture, v_texcoord0).rgb;
-    inputColor = max(inputColor, vec3_splat(0.0)); // make sure there's no negative value
+    vec3 inputColor = texture(s_ColorTexture, v_texcoord0).rgb;
+    inputColor = unExposeLighting(inputColor, texture(s_PreExposureLuminance, vec2(0.5)).r);
 
-    // deobfuscated from vanilla material
-    if (TonemapParams0.b > 0.0) {
-        float preExposureLum = texture2D(s_PreExposureLuminance, vec2_splat(0.5)).r;
-        inputColor = inputColor / vec3_splat((MIDDLE_GRAY / preExposureLum) + EPSILON);
-    }
+    float refLuminance = clamp(texture(s_AverageLuminance, vec2(0.5)).r,
+        LuminanceMinMaxAndWhitePointAndMinWhitePoint.r,
+        LuminanceMinMaxAndWhitePointAndMinWhitePoint.g);
+    float exposure = (MIDDLE_GRAY / refLuminance) * ExposureCompensation.g;
+    inputColor *= exposure;
 
-    float refLuminance = MIDDLE_GRAY;
-    if (ExposureCompensation.b > 0.5) {
-        float avgLum = texture2D(s_AverageLuminance, vec2_splat(0.5)).r;
-        refLuminance = clamp(avgLum, LuminanceMinMaxAndWhitePointAndMinWhitePoint.r, LuminanceMinMaxAndWhitePointAndMinWhitePoint.g);
-    }
-
-    int exposureMode = int(ExposureCompensation.r);
-    float exposureValue = ExposureCompensation.g; //manual
-    if (exposureMode > 0 && exposureMode < 2) {
-        //automatic
-        exposureValue = 1.03 - (2.0 / ((0.43429 * log(refLuminance + 1.0)) + 2.0));
-    } else if (exposureMode > 1) {
-        //custom
-        float lumMin = LuminanceMinMaxAndWhitePointAndMinWhitePoint.r;
-        float lumMax = LuminanceMinMaxAndWhitePointAndMinWhitePoint.g;
-        float t = (lumMin == lumMax) ? 0.5 : ((log2(refLuminance) + 3.0) - (log2(lumMin) + 3.0)) / ((log2(lumMax) + 3.0) - (log2(lumMin) + 3.0));
-        exposureValue = texture2D(s_CustomExposureCompensation, vec2(t, 0.5)).r;
-    }
-
-    float exposure = (MIDDLE_GRAY / refLuminance) * exposureValue;
-    inputColor = inputColor * exposure;
-
-    vec4 rasterOverlay = texture2D(s_RasterizedColor, v_texcoord0);
-    inputColor = mix(inputColor, rasterOverlay.rgb, rasterOverlay.a);
-
-    inputColor *= 2.0; //extra exposure
+    vec4 overlayCol = texture(s_RasterizedColor, v_texcoord0);
+    inputColor = mix(inputColor, overlayCol.rgb, overlayCol.a);
 
     vec3 outColor = agx(inputColor);
-    outColor = agxLook(outColor);
-    outColor = agxEotf(outColor);
-
-    outColor = saturate(outColor);
-
-    gl_FragColor = vec4(outColor, 1.0);
+    fragColor = vec4(outColor, 1.0);
 }
-#endif //BGFX_SHADER_TYPE_FRAGMENT
+#endif //SHADER_STAGE__FRAGMENT

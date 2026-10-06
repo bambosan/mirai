@@ -1,89 +1,104 @@
-#ifndef IBL_INCLUDE
-#define IBL_INCLUDE
+#ifndef IBL_INCLUDED
+#define IBL_INCLUDED
 
-// some functions are deobfuscated from vanilla materials
+#include "common.glsl"
 
-uniform highp vec4 ConvolutionType;
-uniform highp vec4 IBLParameters;
-uniform highp vec4 IBLSkyFadeParameters;
-uniform highp vec4 LastSpecularIBLIdx;
+SAMPLER2D(s_BrdfLUT);
+SAMPLERCUBEARRAY(s_SpecularIBLRecords);
 
-SAMPLER2D_HIGHP_AUTOREG(s_BrdfLUT);
-SAMPLERCUBEARRAY_AUTOREG(s_SpecularIBLRecords);
-
-float getIBLMipLevel(float a) {
+float calcIBLMipLevel(float a, float b, float convType) {
     float x = 1.0 - a;
-    if (int(ConvolutionType.x) != 1) x = pow4(x);
-    return (1.0 - x * x) * (IBLParameters.y - 1.0);
+    if (int(convType) != 1) x = pow(x, 4.0);
+    return (1.0 - x * x) * (b - 1.0);
 }
 
-vec3 getProbeLighting(float a, vec3 rv) {
-    float iblMipLevel = getIBLMipLevel(a);
-    int curr = int(LastSpecularIBLIdx.x);
+vec3 calcProbeLighting(
+    vec4 iblParams,
+    vec3 rv,
+    float a,
+    float convType,
+    float lastSpecIdx
+) {
+    float iblMipLevel = calcIBLMipLevel(a, iblParams.g, convType);
+    int curr = int(lastSpecIdx);
     int prev = (curr + 2) % 3;
-
-    vec3 preFilteredColorCurrent = textureCubeArrayLod(s_SpecularIBLRecords, vec4(rv, curr), iblMipLevel).rgb;
-    vec3 preFilteredColorPrevious = textureCubeArrayLod(s_SpecularIBLRecords, vec4(rv, prev), iblMipLevel).rgb;
-    vec3 preFilteredColor = mix(preFilteredColorPrevious, preFilteredColorCurrent, IBLParameters.w);
-    return preFilteredColor;
+    vec3 preFilteredCol = mix(
+        textureLod(s_SpecularIBLRecords, vec4(rv, prev), iblMipLevel).rgb,
+        textureLod(s_SpecularIBLRecords, vec4(rv, curr), iblMipLevel).rgb,
+        iblParams.a
+    );
+    return preFilteredCol * iblParams.b;
 }
 
-#if DO_INDIRECT_SPECULAR_SHADING_DUAL_TARGET_PASS || DO_INDIRECT_SPECULAR_SHADING_SINGLE_TARGET_PASS
+#if DO_INDIRECT_SPECULAR_SHADING_PASS
+SAMPLER2D(s_SSRTexture);
 
-uniform highp vec4 SSRParameters;
-SAMPLER2D_HIGHP_AUTOREG(s_SSRTexture);
+vec3 indirectSpecular(
+    vec4 iblParams,
+    vec4 ssrParams,
+    vec3 f0,
+    vec3 worldDir,
+    vec3 normal,
+    vec2 ssrUV,
+    float convType,
+    float lastSpecIdx,
+    float roughness,
+    float occluder,
+    float exposure
+) {
+    vec3 ilight = vec3(0.0);
 
-vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, vec2 ssrUV, float roughness, float metalness, float skyLightmap, float exposure, bool isNeedReflection) {
-    vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
-    vec3 incomingLight = ambientColor;
-
-    if (IBLParameters.r > 0.0) {
+    if (iblParams.r > 0.0) {
         vec3 reflectedDir = reflect(worldDir, normal);
-        float reflIntensity = 1.0 - sqrt(roughness);
-        vec3 skyProbe = getProbeLighting(roughness, reflectedDir);
+        vec3 skyProbe = calcProbeLighting(
+            iblParams,
+            reflectedDir,
+            roughness,
+            convType,
+            lastSpecIdx
+        );
+        ilight = skyProbe * occluder * (1.0 - roughness);
 
-        if (isNeedReflection) incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
-
-        float iblLuminance = luminance(incomingLight);
-        float ambientLuminance = luminance(ambientColor);
-        if (iblLuminance < ambientLuminance) incomingLight = ambientColor;
-
-        vec4 ssr = texture2D(s_SSRTexture, ssrUV);
-        ssr.rgb = unExposeLighting(ssr.rgb, exposure);
-        if (SSRParameters.r > 0.0) incomingLight = mix(incomingLight, ssr.rgb, ssr.a * SSRParameters.g);
+        vec4 ssr = texture(s_SSRTexture, ssrUV);
+        ssr.rgb = unExposeLighting(ssr.rgb * (1.0 / EXPOSURE_MULTIPLIER), exposure);
+        if (ssrParams.r > 0.0)
+            ilight = mix(ilight, ssr.rgb, ssr.a * ssrParams.g);
     }
 
-    float cost = saturate(dot(-worldDir, normal));
-    vec2 envDFGUV = vec2(cost, 1.0 - roughness);
-    vec2 envDFG = texture2D(s_BrdfLUT, envDFGUV).rg;
-
-    return incomingLight * (f0 * envDFG.r + envDFG.g);
+    float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
+    vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
+    return ilight * (f0 * envDFG.r + envDFG.g);
 }
 
 #else
 
-vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, float roughness, float metalness, float skyLightmap, bool isNeedReflection) {
-    vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
-    vec3 incomingLight = ambientColor;
+vec3 indirectSpecular(
+    vec4 iblParams,
+    vec3 f0,
+    vec3 worldDir,
+    vec3 normal,
+    float convType,
+    float lastSpecIdx,
+    float roughness,
+    float occluder
+) {
+    vec3 ilight = vec3(0.0);
 
-    if (IBLParameters.r > 0.0) {
+    if (iblParams.r > 0.0) {
         vec3 reflectedDir = reflect(worldDir, normal);
-        float reflIntensity = 1.0 - sqrt(roughness);
-        vec3 skyProbe = getProbeLighting(roughness, reflectedDir);
-
-        if (isNeedReflection) incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
-
-        float iblLuminance = luminance(incomingLight);
-        float ambientLuminance = luminance(ambientColor);
-        if (iblLuminance < ambientLuminance) incomingLight = ambientColor;
+        vec3 skyProbe = calcProbeLighting(
+            iblParams,
+            reflectedDir,
+            roughness,
+            convType,
+            lastSpecIdx
+        );
+        ilight = skyProbe * occluder * (1.0 - roughness);
     }
 
-    float cost = saturate(dot(-worldDir, normal));
-    vec2 envDFGUV = vec2(cost, 1.0 - roughness);
-    vec2 envDFG = texture2D(s_BrdfLUT, envDFGUV).rg;
-
-    return incomingLight * (f0 * envDFG.r + envDFG.g);
+    float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
+    vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
+    return ilight * (f0 * envDFG.r + envDFG.g);
 }
-
 #endif
-#endif //IBL_INCLUDE
+#endif

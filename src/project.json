@@ -1,47 +1,20 @@
 {
   "base_profile": {
+    "platforms": ["ESSL_310"],
     "merge_source": ["vanilla"],
-    "include_patterns": [
-      "materials/*Prepass*",
-      "materials/Bloom",
-      "materials/ColorPostProcessing",
-      "materials/DeferredMultipass",
-      "materials/DeferredShading",
-      "materials/DeferredShadingBase",
-      "materials/DeferredTiledMixedRes",
-      "materials/LegacyCubemap",
-      "materials/LightClustering",
-      "materials/ScreenSpaceReflections",
-      "materials/WaterExtinction"
-    ],
+    "include_patterns": ["materials/*"],
     "exclude_patterns": ["include/*", "vanilla/*"],
-    "include_search_paths": [
-      "include",
-      "include/bgfx"
-    ]
+    "include_search_paths": ["include"]
   },
   "profiles": {
-    "shading": {
-      "include_patterns": [
-        "materials/*ForwardPBR*",
-        "materials/DeferredIndirectSpecular",
-        "materials/DeferredMixedResolution",
-        "materials/DeferredWater",
-        "materials/PopulateVolume",
-        "materials/SkyProbeDeferredShading"
-      ]
-    },
-    "vclouds": {
-      "macros": ["VOLUMETRIC_CLOUDS_ENABLED"]
-    },
-    "windows": {
-      "platforms": ["Direct3D_SM65"]
-    },
     "android": {
       "platforms": ["ESSL_310"]
     },
     "ios": {
       "platforms": ["Metal"]
+    },
+    "windows": {
+      "platforms": ["Direct3D_SM65"]
     }
   }
 }

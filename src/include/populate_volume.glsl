@@ -1,187 +1,78 @@
-#if BGFX_SHADER_TYPE_COMPUTE
-uniform highp mat4 CascadesShadowInvProj[8];
-uniform highp mat4 CascadesShadowProj[8];
-uniform highp mat4 PlayerShadowProj;
-uniform highp vec4 CameraUnderwaterAndWaterSurfaceBiasAndFalloff;
-uniform highp vec4 CascadesParameters[8];
-uniform highp vec4 CascadesPerSet;
-uniform highp vec4 DimensionID;
-uniform highp vec4 TimeOfDay;
-uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
-uniform highp vec4 FirstPersonPlayerShadowsEnabledAndResolutionAndFilterWidthAndTextureDimensions;
-uniform highp vec4 FogAndDistanceControl;
-uniform highp vec4 HeightFogScaleBias;
-uniform highp vec4 JitterOffset;
-uniform highp vec4 MoonDir;
-uniform highp vec4 SunDir;
-uniform highp vec4 TemporalSettings;
-uniform highp vec4 CameraLightIntensity;
-
-SAMPLER2D_HIGHP_AUTOREG(s_ScreenSpaceWaterFrontFaceDepthAndNormal);
-SAMPLER2D_HIGHP_AUTOREG(s_ScreenSpaceWaterBackFaceDepthAndNormal);
-SAMPLER2DARRAY_AUTOREG(s_ShadowCascades);
-SAMPLER2DARRAY_AUTOREG(s_PreviousLightingBuffer);
-IMAGE2D_ARRAY_WR_AUTOREG(s_CurrentLightingBuffer, rgba16f);
-
-#include "./lib/common.glsl"
-#include "./lib/froxel_util.glsl"
-#include "./lib/atmosphere.glsl"
-
-float calcFPShadow(vec3 worldPos){
-    vec3 projPos = mul(PlayerShadowProj, vec4(worldPos, 1.0)).xyz;
-    projPos.z = min(projPos.z, 1.0);
-
-#if BGFX_SHADER_LANGUAGE_GLSL
-    vec2 uvShadow = projPos.xy * 0.5 + 0.5;
-    float occluder = projPos.z * 0.5 + 0.5;
-#else
-    vec2 uvShadow = vec2(projPos.x, -projPos.y) * 0.5 + 0.5;
-    float occluder = projPos.z;
-#endif
-
-    float shadowScale = FirstPersonPlayerShadowsEnabledAndResolutionAndFilterWidthAndTextureDimensions.g;
-    uvShadow *= shadowScale;
-    bool isShadowFrustum = uvShadow.x >= 0.0 && uvShadow.x < shadowScale && uvShadow.y >= 0.0 && uvShadow.y < shadowScale;
-    if (!isShadowFrustum) return 1.0;
-#if BGFX_SHADER_LANGUAGE_GLSL
-    uvShadow.y = uvShadow.y + (1.0 - shadowScale);
-#endif
-
-    float cascade = dot(CascadesPerSet, vec4_splat(1.0)) + 1.0;
-    return step(occluder, texture2DArrayLod(s_ShadowCascades, vec3(uvShadow, cascade), 0.0).r);
-}
-
-// get total 8 cascades, 4 day, 4 night
-int getCascade(vec3 worldPos, out vec3 projPos) {
-    int numShadow = 0;
-    int numCascade = int(dot(clamp(CascadesPerSet, 0.0, 1.0), vec4_splat(1.0)));
-
-    LOOP
-    for (int i = 0; i < numCascade; i++) {
-        int cascadePerSet = min(int(CascadesPerSet[i]), 8 - numShadow);
-        LOOP
-        for (int j = 0; j < cascadePerSet; j++) {
-            int cascadeIdx = numShadow + j;
-            projPos = mul(CascadesShadowProj[cascadeIdx], vec4(worldPos, 1.0)).xyz;
-            if (all(lessThanEqual(abs(projPos), vec3_splat(1.0)))) return cascadeIdx;
-        }
-        numShadow += cascadePerSet;
-    }
-    return -1;
-}
-
-//no need filter and bias
-float calcMainShadow(vec3 worldPos){
-    vec3 projPos;
-    int cascade = getCascade(worldPos, projPos);
-    if (cascade < 0) return 1.0;
-
-#if BGFX_SHADER_LANGUAGE_GLSL
-    vec2 uvShadow = projPos.xy * 0.5 + 0.5;
-    float occluder = projPos.z * 0.5 + 0.5;
-#else
-    vec2 uvShadow = vec2(projPos.x, -projPos.y) * 0.5 + 0.5;
-    float occluder = projPos.z;
-#endif
-
-    float shadowScale = CascadesParameters[cascade].x;
-    uvShadow = uvShadow * shadowScale + vec2(0.0, 1.0 - shadowScale);
-    return step(occluder, texture2DArrayLod(s_ShadowCascades, vec3(uvShadow, cascade), 0.0).r);
-}
-
 #if THREAD_LIMIT__LIMITED_AT128
-NUM_THREADS(8, 8, 2)
-#elif THREAD_LIMIT__LIMITED_AT256
-NUM_THREADS(8, 8, 4)
-#else
-NUM_THREADS(8, 8, 8)
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 2) in;
 #endif
+#if THREAD_LIMIT__LIMITED_AT256
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 4) in;
+#endif
+#if THREAD_LIMIT__NATIVE
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+#endif
+
+uniform vec4 CameraLightIntensity;
+uniform vec4 CameraUnderwaterAndWaterSurfaceBiasAndFalloff;
+uniform vec4 DirectionalLightSourceWorldSpaceDirection;
+uniform vec4 FogSkyBlend;
+uniform vec4 MoonDir;
+uniform vec4 SunColor;
+uniform vec4 SunDir;
+uniform vec4 VolumeDimensions;
+uniform vec4 VolumeNearFar;
+uniform mat4 u_invViewProj;
+uniform mat4 u_proj;
+
+SAMPLER2D(s_ScreenSpaceWaterFrontFaceDepthAndNormal);
+SAMPLER2D(s_ScreenSpaceWaterBackFaceDepthAndNormal);
+IMAGE2D_ARRAY_RO(s_CascadedShadowBuffer, r32f);
+IMAGE2D_ARRAY_WO(s_ScatteringBufferOut, rgba16f);
+
+#include "lib/froxel_utils.glsl"
+#include "lib/atmosphere.glsl"
+
 void main() {
-    ivec3 xyz = ivec3(gl_GlobalInvocationID.xyz);
-    //just for overworld
-    if (any(greaterThanEqual(xyz, ivec3(VolumeDimensions.xyz))) || int(DimensionID.r) != 0) return;
+    uvec3 xyz = gl_GlobalInvocationID;
+    if (any(greaterThanEqual(xyz, uvec3(VolumeDimensions.xyz)))
+        || !isOverworld(FogSkyBlend.g)) return;
 
-    vec3 uvw = (vec3(xyz) + JitterOffset.xyz + 0.5) / VolumeDimensions.xyz;
-    vec3 worldPos = volumeToWorld(uvw);
+    vec3 uvw = (vec3(xyz) + 0.5) / VolumeDimensions.xyz;
+    vec3 worldPos = volumeToWorld(VolumeNearFar.xy, uvw, u_invViewProj, u_proj);
     vec3 worldDir = normalize(worldPos);
-    vec3 viewPos = mul(u_view, vec4(worldPos, 1.0)).xyz;
-    float viewDist = length(viewPos);
 
-    float shadowMap = calcMainShadow(worldPos);
-    float fpShadow = calcFPShadow(worldPos);
-    shadowMap = min(shadowMap, fpShadow);
+    float occlusion = imageLoad(s_CascadedShadowBuffer, ivec3(xyz)).r;
+    float cost = dot(worldDir, DirectionalLightSourceWorldSpaceDirection.xyz);
 
-    vec3 absorbColor = GetSunTransmittance(SunDir.xyz) * SUN_MAX_ILLUMINANCE;
-    absorbColor += GetMoonTransmittance(MoonDir.xyz) * MOON_MAX_ILLUMINANCE;
-    //night-sunrise sunset-night transition fade
+    vec3 cRayleigh, cMie, cOzone;
+    atmConstant(SunColor.r, cRayleigh, cMie, cOzone);
+
+    vec3 absorbColor = calcLightTransmittance(SunDir.xyz, cRayleigh, cMie, cOzone, 0.75)
+        * SUN_RADIANCE_MULTIPLIER;
+    absorbColor += calcLightTransmittance(MoonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
+        * MOON_RADIANCE_MULTIPLIER;
     absorbColor *= smoothstep(0.0, 0.1, DirectionalLightSourceWorldSpaceDirection.y);
 
-    // air scattering
-    // aerial intensity is higher when sunrise
-    float aerialModulator = 1.0 + smoothstep(0.5, 0.75, TimeOfDay.r) * smoothstep(0.85, 0.7, TimeOfDay.r) * 10.0;
-    AtmosphereParams sunAtmParams;
-    sunAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    sunAtmParams.rayDir = worldDir;
-    sunAtmParams.lightDir = SunDir.xyz;
-    sunAtmParams.rayLength = viewDist;
-    sunAtmParams.aerial = aerialModulator;
-    sunAtmParams.occlusion = shadowMap;
-    sunAtmParams.mieMod = 1.0;
+    float mie = phase(cost, 0.6, 0.0) * occlusion * SunColor.r
+        * smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y);
+    vec3 airScattering = absorbColor * mie * 0.0005;
 
-    AtmosphereParams moonAtmParams;
-    moonAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
-    moonAtmParams.rayDir = worldDir;
-    moonAtmParams.lightDir = MoonDir.xyz;
-    moonAtmParams.rayLength = viewDist;
-    moonAtmParams.aerial = aerialModulator;
-    moonAtmParams.occlusion = shadowMap;
-    moonAtmParams.mieMod = 1.0;
-
-    vec4 transmittance;
-    vec3 airScattering = GetAtmosphere(sunAtmParams, transmittance) * SUN_MAX_ILLUMINANCE;
-    airScattering += GetAtmosphere(moonAtmParams) * MOON_MAX_ILLUMINANCE;
-
-    float altitudeMod = clamp(HeightFogScaleBias.x * worldPos.y + HeightFogScaleBias.y, 0.0, 1.0);
-    float tsmLum = saturate(luminance(transmittance.rgb));
-    vec4 scatterExt = vec4(airScattering, 1.0 - tsmLum) * altitudeMod * CameraLightIntensity.y;
-
-    // water scattering
-    float cost = dot(worldDir, DirectionalLightSourceWorldSpaceDirection.xyz);
-    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * PhaseHG(cost, 0.65) * shadowMap * luminance(absorbColor) * 0.03;
-#if BGFX_SHADER_LANGUAGE_GLSL
-    ivec2 newCoord = xyz.xy;
+#if TRANSPILE_TARGET__GLSL
+    uvec2 newCoord = xyz.xy;
 #else
-    ivec2 newCoord = ivec2(xyz.x, int(VolumeDimensions.y) - xyz.y);
+    uvec2 newCoord = uvec2(xyz.x, uint(VolumeDimensions.y) - xyz.y);
 #endif
-    vec2 ffdn = texelFetch(s_ScreenSpaceWaterFrontFaceDepthAndNormal, newCoord, 0).rg;
-    vec2 bfdn = texelFetch(s_ScreenSpaceWaterBackFaceDepthAndNormal, newCoord, 0).rg;
-    float waterBody = smoothstep(-0.5, 0.5, ((((uvw.z - ffdn.r) * VolumeDimensions.z) * ffdn.g) - CameraUnderwaterAndWaterSurfaceBiasAndFalloff.y) / CameraUnderwaterAndWaterSurfaceBiasAndFalloff.z);
-    if (waterBody >= 0.0 && (uvw.z - bfdn.r) >= 0.0) waterBody = 0.0;
-    if (CameraUnderwaterAndWaterSurfaceBiasAndFalloff.x > 0.0) {
+    vec2 ffdn = texelFetch(s_ScreenSpaceWaterFrontFaceDepthAndNormal, ivec2(newCoord), 0).rg;
+    vec2 bfdn = texelFetch(s_ScreenSpaceWaterBackFaceDepthAndNormal, ivec2(newCoord), 0).rg;
+    float waterBody = smoothstep(-0.5, 0.5, (
+        (((uvw.z - ffdn.r) * VolumeDimensions.z) * ffdn.g)
+        - CameraUnderwaterAndWaterSurfaceBiasAndFalloff.y
+    ) / CameraUnderwaterAndWaterSurfaceBiasAndFalloff.z);
+    if (waterBody >= 0.0 && (uvw.z - bfdn.r) >= 0.0)
+        waterBody = 0.0;
+    if (CameraUnderwaterAndWaterSurfaceBiasAndFalloff.x > 0.0)
         waterBody = 1.0 - waterBody;
-        scatterExt = mix(scatterExt, vec4(waterScattering, 0.0), waterBody);
-    }
+    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0)
+        * phase(cost, 0.65, 0.0) * occlusion * luminance(absorbColor) * 0.01;
 
-    // cut scattering if out of render distance
-    scatterExt = (viewDist / FogAndDistanceControl.z) < 1.0 ? scatterExt : vec4_splat(0.0);
+    vec4 totalScatter = vec4(airScattering, luminance(airScattering)) * CameraLightIntensity.y;
+    totalScatter = mix(totalScatter, vec4(waterScattering, 0.0), waterBody);
 
-    //temporal accumulation stuff
-    vec3 uvwNoJitt = (vec3(xyz) + 0.5) / VolumeDimensions.xyz;
-    vec3 worldPosNoJitt = volumeToWorld(uvwNoJitt);
-    vec3 prevWorldPos = worldPosNoJitt - u_prevWorldPosOffset.xyz;
-    vec3 prevUvw = worldToVolume(prevWorldPos);
-    vec4 prevValue = sampleVolume(s_PreviousLightingBuffer, prevUvw);
-    vec3 prevTexel = VolumeDimensions.xyz * prevUvw;
-    vec3 prevTexelClamped = clamp(prevTexel, vec3_splat(0.0), VolumeDimensions.xyz);
-    float distBoundary = distance(prevTexelClamped, prevTexel);
-    float rejectH = clamp(distBoundary * TemporalSettings.y, 0.0, 1.0);
-    float blendW = mix(TemporalSettings.z, 0.0, rejectH);
-
-    if (TemporalSettings.x > 0.0) {
-        imageStore(s_CurrentLightingBuffer, xyz, mix(scatterExt, prevValue, blendW));
-    } else {
-        imageStore(s_CurrentLightingBuffer, xyz, scatterExt);
-    }
+    imageStore(s_ScatteringBufferOut, ivec3(xyz), totalScatter);
 }
-
-#endif

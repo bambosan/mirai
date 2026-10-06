@@ -1,88 +1,119 @@
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_VERTEX
+#if SHADER_STAGE__VERTEX
+#if FORWARD_PBR_TRANSPARENT_SKY_PROBE_PASS
+void main() {
+    gl_Position = vec4(0.0);
+}
+#else
+uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
+uniform mat4 u_viewProj;
+
+#include "lib/gbuffer_utils.glsl"
+
+in vec4 a_color0;
+in vec3 a_position;
+in vec2 a_texcoord0;
+#if INSTANCING__ON
+in vec4 i_data1;
+in vec4 i_data2;
+in vec4 i_data3;
+#endif
+
+layout(location = 0) out vec4 v_clipPos;
+layout(location = 1) out vec3 v_worldPos;
+layout(location = 2) out vec2 v_texcoord0;
+
 void main() {
 #if INSTANCING__ON
-    vec3 worldPos = mul(mtxFromCols(i_data1, i_data2, i_data3, vec4(0.0, 0.0, 0.0, 1.0)), vec4(a_position, 1.0)).xyz;
+    vec3 worldPos = (instanceMatrix(i_data1, i_data2, i_data3) * vec4(a_position, 1.0)).xyz;
 #else
-    vec3 worldPos = mul(u_model[0], vec4(a_position, 1.0)).xyz;
+    vec3 worldPos = (u_model[0] * vec4(a_position * 2.0, 1.0)).xyz;
 #endif
-    vec4 clipPos = mul(u_viewProj, vec4(worldPos, 1.0));
+    vec4 clipPos = u_viewProj * vec4(worldPos, 1.0);
     v_clipPos = clipPos;
     v_texcoord0 = a_texcoord0;
-    v_worldPos = worldPos;
+    v_worldPos = worldPos * 0.5;
     gl_Position = clipPos;
 }
 #endif
-
-
-
+#endif //SHADER_STAGE__VERTEX
 
 ///////////////////////////////////////////////////////////
-// FRAGMENT/PIXEL SHADER
+// FRAGMENT SHADER
 ///////////////////////////////////////////////////////////
-#if BGFX_SHADER_TYPE_FRAGMENT
-uniform highp vec4 MoonDir;
-uniform highp vec4 SunDir;
-uniform highp vec4 Time;
-uniform highp vec4 WorldOrigin;
-uniform highp vec4 SkyProbeUVFadeParameters;
+#if SHADER_STAGE__FRAGMENT
+#if FORWARD_PBR_TRANSPARENT_SKY_PROBE_PASS
+out vec4 fragColor;
+void main() {
+    fragColor = vec4(0.0);
+}
+#else
+uniform vec4 MoonDir;
+uniform vec4 SunDir;
+uniform vec4 SunMoonColor;
+uniform vec4 VolumeDimensions;
+uniform vec4 VolumeNearFar;
+uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
+uniform mat4 u_invProj;
 
-SAMPLER2D_HIGHP_AUTOREG(s_SunMoonTexture);
-SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
-SAMPLER2DARRAY_AUTOREG(s_ScatteringBuffer);
+SAMPLER2D(s_SunMoonTexture);
+SAMPLER2D(s_PreviousFrameAverageLuminance);
+SAMPLER2DARRAY(s_ScatteringBuffer);
 
-#include "./lib/common.glsl"
-#include "./lib/atmosphere.glsl"
-#include "./lib/froxel_util.glsl"
-#include "./lib/clouds.glsl"
+#include "lib/atmosphere.glsl"
+#include "lib/froxel_utils.glsl"
+
+layout(location = 0) in vec4 v_clipPos;
+layout(location = 1) in vec3 v_worldPos;
+layout(location = 2) in vec2 v_texcoord0;
+
+out vec4 fragColor;
 
 void main() {
     vec3 worldDir = normalize(v_worldPos);
-    AtmosphereParams atmParams;
-    atmParams.rayStart = vec3(0.0, 0.0, 0.0);
-    atmParams.rayDir = worldDir;
-    atmParams.lightDir = vec3_splat(0.0);
-    atmParams.rayLength = 1e10;
-    atmParams.aerial = 1.0;
-    atmParams.occlusion = 1.0;
-    atmParams.mieMod = 1.0;
+
+    vec3 cRayleigh, cMie, cOzone;
+    atmConstant(SunMoonColor.r, cRayleigh, cMie, cOzone);
+    AtmosphereParams atmParams = AtmosphereParams(
+        cRayleigh,
+        cMie,
+        cOzone,
+        worldDir,
+        vec3(0.0),
+        1e10,
+        1.0,
+        1.0,
+        SunMoonColor.r
+    );
     vec4 transmittance;
-    vec3 unused = GetAtmosphere(atmParams, transmittance);
+    vec3 unused = calcAtmosphere(atmParams, transmittance);
 
-    //sun without limb darkening
-    float costh = dot(worldDir, SunDir.xyz);
-    float disc = sqrt(smoothstep(cos(0.00436 * 4.0), 1.0, costh));
-    vec3 outColor = disc * transmittance.rgb * transmittance.rgb * 25000.0;
+    float disc  = sqrt(smoothstep(cos(0.00436 * 10.0), 1.0, dot(worldDir, SunDir.xyz)));
+    float tsmLum = luminance(transmittance.rgb);
+    vec3 outColor = disc * pow(tsmLum, 1.5) * transmittance.rgb * transmittance.a
+        * SUN_RADIANCE_MULTIPLIER * 100.0;
 
-#ifdef VOLUMETRIC_CLOUDS_ENABLED
-    float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
-    CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
-    float cloudTransmittance = calcCloudTransmittanceOnly(worldDir, 0.0, dither, false, cloudSetup);
-    outColor *= cloudTransmittance * cloudTransmittance * cloudTransmittance; //this is shiny sun, so need extra transmission to hide it
-#endif
-
-    //mask moon position and sample the texture
     if (dot(worldDir, MoonDir.xyz) > 0.0) {
-        vec3 tex = texture2D(s_SunMoonTexture, v_texcoord0).rgb;
+        vec3 tex = toLinear(texture(s_SunMoonTexture, v_texcoord0).rgb);
         float texlum = luminance(tex);
-        outColor = texlum * texlum * transmittance.rgb;
-#ifdef VOLUMETRIC_CLOUDS_ENABLED
-        outColor *= cloudTransmittance;
-#endif
+        outColor = step(0.05, texlum) * texlum * transmittance.rgb * transmittance.a
+            * MOON_RADIANCE_MULTIPLIER * 5.0;
     }
 
-    vec3 projPos = v_clipPos.xyz / v_clipPos.w;
-    vec3 uvw = ndcToVolume(projPos);
-    vec4 volumetricFog = sampleVolume(s_ScatteringBuffer, uvw);
-    if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) outColor *= volumetricFog.a;
+    if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {
+        vec3 projPos = v_clipPos.xyz / v_clipPos.w;
+        vec3 uvw = ndcToVolume(VolumeNearFar.xy, projPos, u_invProj);
+        vec4 volumetricFog = sampleVolume(s_ScatteringBuffer, uvw, VolumeDimensions.z);
+        outColor *= volumetricFog.a;
+    }
 
-#if FORWARD_PBR_TRANSPARENT_PASS
-    outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
-    gl_FragColor = vec4(outColor, 1.0);
-#else
-    gl_FragColor = vec4_splat(0.0);
-#endif
+    outColor *= SunMoonColor.r;
+
+    outColor.rgb = preExposeLighting(outColor.rgb * EXPOSURE_MULTIPLIER,
+        texture(s_PreviousFrameAverageLuminance, vec2(0.5)).r);
+    fragColor = vec4(outColor, 1.0);
 }
 #endif
+#endif //SHADER_STAGE__FRAGMENT

@@ -1,85 +1,24 @@
-#ifndef NOISES_INCLUDE
-#define NOISES_INCLUDE
+#ifndef NOISES_INCLUDED
+#define NOISES_INCLUDED
 
-SAMPLER2DARRAY_AUTOREG(s_CausticsTexture);
-
-// perlin worley are precomputed in the texture atlas
-// the atlas is a 6*6 grid of 32*32 tiles with 1 px padding each side
-// inspired from https://www.shadertoy.com/view/3sffzj
-// do biniear filtering because s_CausticsTexture is nearest
-
-float worleyR(vec2 uv) {
-    uv -= 0.5;
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
-    vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 3.0), 0);
-    return mix(mix(t.w, t.z, f.x), mix(t.x, t.y, f.x), f.y);
+// https://www.shadertoy.com/view/4djSRW
+float rand(vec2 p) {
+    vec3 p3 = fract(p.xyx * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
-float worleyG(vec2 uv) {
-    uv -= 0.5;
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
-    vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 3.0), 1);
-    return mix(mix(t.w, t.z, f.x), mix(t.x, t.y, f.x), f.y);
-}
-
-float worley3d(vec3 pos) {
-    pos = mod(pos, vec3(32.0, 32.0, 36.0));
-
-    float col = mod(floor(pos.z), 6.0) * 34.0;
-    float row = floor(pos.z / 6.0) * 34.0;
-    vec2 uv = vec2(pos.x + col, pos.y - 34.0 - row) + 1.0;
-
-    float a = worleyR(uv);
-    float b = worleyG(uv);
-
-    return mix(a, b, fract(pos.z));
-}
-
-float perlinWorleyR(vec2 uv) {
-    uv -= 0.5;
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
-    vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 2.0), 0);
-    return mix(mix(t.w, t.z, f.x), mix(t.x, t.y, f.x), f.y);
-}
-
-float perlinWorleyG(vec2 uv) {
-    uv -= 0.5;
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
-    vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 2.0), 1);
-    return mix(mix(t.w, t.z, f.x), mix(t.x, t.y, f.x), f.y);
-}
-
-float perlinWorley3d(vec3 pos) {
-    pos = mod(pos, vec3(32.0, 32.0, 36.0));
-
-    float col = mod(floor(pos.z), 6.0) * 34.0;
-    float row = floor(pos.z / 6.0) * 34.0;
-    vec2 uv = vec2(pos.x + col, pos.y - 34.0 - row) + 1.0;
-
-    float a = perlinWorleyR(uv);
-    float b = perlinWorleyG(uv);
-
-    return mix(a, b, fract(pos.z));
-}
-
-float valueNoise(vec2 uv) {
-    uv -= 0.5;
-    vec2 i = floor(uv);
-    vec2 f = fract(uv);
+float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
-    vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 0.0), 0);
-    return mix(mix(t.w, t.z, f.x), mix(t.x, t.y, f.x), f.y);
-}
 
-float valueNoise3d(vec3 pos) {
-    vec2 uv = pos.xy + floor(pos.z) * 17.0;
-    float a = valueNoise(uv);
-    float b = valueNoise(uv + 17.0);
-    return mix(a, b, fract(pos.z));
+    float a = rand(i);
+    float b = rand(i + vec2(1.0, 0.0));
+    float c = rand(i + vec2(0.0, 1.0));
+    float d = rand(i + vec2(1.0, 1.0));
+
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
 #endif
