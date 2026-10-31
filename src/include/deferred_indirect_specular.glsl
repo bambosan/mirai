@@ -77,7 +77,8 @@ void main() {
         vec4 data = texture(s_ColorMetalnessSubsurface, v_texcoord0);
         float metalness = unpackMetalness(data.a);
         vec3 albedo = toLinear(data.rgb);
-        vec3 f0 = mix(DEFAULT_F0, albedo, metalness);
+        vec3 f0 = all(lessThan(data, vec4(EPSILON)))
+            ? WATER_F0 : mix(DEFAULT_F0, albedo, metalness);
 
         vec3 normal = octToNdirSnorm(texture(s_Normal, v_texcoord0).rg);
 
