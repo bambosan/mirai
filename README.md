@@ -2,35 +2,23 @@
 
 # Mirai
 
-Mirai is a custom Vibrant Visual shader for Minecraft: Bedrock Edition. It modifies the RenderDragon rendering pipeline to give the game a more realistic look, with improved lighting, reflections, atmospheric scattering, water effects, cirrus clouds, rain puddles, and AgX tonemapping.
+Mirai is a shader pack for Minecraft: Bedrock Edition. It replaces the materials of the Vibrant Visuals renderer (RenderDragon) to give the game a more realistic look: better lighting, an atmospheric sky, reflections, animated water with caustics, cirrus clouds, rain puddles, volumetric light, and AgX tonemapping.
 
-See more [here](https://bambosan.github.io/mirai/)
-
-## Rendering Pipeline
-
-At a high level, Mirai's rendering work is split into these stages. RenderDragon controls rendering pipeline.
-
-1. **Geometry and material prepass**: Terrain, blocks, entities, and other objects write depth, normals, and material data for later shading. Objects that need it are rendered through forward-shading passes.
-2. **Lighting and reflections**: Deferred passes combine the material buffers with direct lighting, filtered shadows, and indirect specular lighting. Screen-space reflections add reflections using the rendered scene.
-3. **Water and atmosphere**: Water passes handle absorption, wave normals, and caustics. Atmospheric scattering, fog, sky, clouds, and volumetric effects shape the scene's atmosphere.
-4. **Post-processing**: Bloom and exposure are applied before AgX tone mapping converts the scene's lighting and colors for the final image.
+More details are on the [project page](https://bambosan.github.io/mirai/).
 
 ## Build
 
-You need Python 3.10 or later. The build script can install the compatible Lazurite package and download the Albite compiler when they are missing. The bundled compiler setup supports Linux and Windows on x86-64 hosts.
-
-Run a command from the repository root to compile the shader materials for a target platform:
+You need Python 3.10 or later. The build script installs Lazurite and downloads the Albite compiler if they are missing. The compiler supports Linux and Windows on x86-64.
 
 ```bash
-python build.py android
-python build.py windows
-python build.py ios
+python build.py android    # or windows, ios
+python build.py all        # every target
 ```
 
-To build every configured target, run:
+Compiled `.material.bin` files are written to `output-<platform>/`. The script does not create a `.mcpack`. To make one, copy the files into a `materials/` folder inside a copy of `pack/` and zip it.
 
-```bash
-python build.py all
-```
+Run `python build.py -h` for options such as `-m` (build specific materials) and `-f` (full rebuild).
 
-Compiled materials are written to `output-<platform>/`, such as `output-android/`. The script compiles the materials; it does not create a `.mcpack` archive.
+## License
+
+MIT. See [LICENSE](LICENSE).
