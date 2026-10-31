@@ -105,6 +105,16 @@ def fmt_time(seconds: float) -> str:
     return f"{seconds * 1000:.0f}ms" if seconds < 1 else f"{seconds:.1f}s"
 
 
+def target_slug(profiles: list[str]) -> str:
+    """Stable, order-independent name used for output/cache paths ('android-vclouds')."""
+    return "-".join(sorted(profiles))
+
+
+def target_label(profiles: list[str]) -> str:
+    """Human readable name used in messages ('android+vclouds')."""
+    return "+".join(sorted(profiles))
+
+
 def _hash_key(value) -> str:
     return hashlib.sha256(json.dumps(value).encode()).hexdigest()[:32]
 
@@ -128,7 +138,7 @@ def _emit(event: tuple) -> None:
 # Lazurite adapter
 # --------------------------------------------------------------------------- #
 def compile_material(
-    platform: str,
+    profiles: list[str],
     material_dir: Path,
     output_dir: Path,
     albite: Path,
@@ -138,7 +148,7 @@ def compile_material(
 
     lazurite_compile(
         project_path=str(SRC),
-        profiles=[platform],
+        profiles=list(profiles),
         output_folder=str(output_dir),
         material_patterns=[str(material_dir)],
         defines=[],
@@ -863,17 +873,21 @@ def _finish_empty_build(platform, started, orphans, cache) -> int:
     return 0
 
 
-def _make_jobs(platform, todo, out_dir, albite, glob_state, cfg, args, can_preprocess):
+def _make_jobs(
+    profiles, todo, out_dir, albite, glob_state, cfg, args, can_preprocess
+):
+    slug = target_slug(profiles)
     return [
         Job(
             name=mat_dir.name,
-            platform=platform,
+            platform=slug,
+            profiles=list(profiles),
             mat_dir=str(mat_dir),
             out_dir=str(out_dir),
             albite=str(albite),
             albite_sha=glob_state["albite"],
             search_paths=[str(path) for path in cfg.include_search_paths],
-            shader_dir=str(CACHE_DIR / "shaders" / platform),
+            shader_dir=str(CACHE_DIR / "shaders" / slug),
             read_cache=not args.force,
             can_preprocess=can_preprocess,
         )
@@ -988,7 +1002,7 @@ class Reporter:
 @dataclasses.dataclass
 class Job:
     name: str
-    platform: str
+    platform: str  # target slug (used for scratch/cache names)
     mat_dir: str
     out_dir: str
     albite: str
@@ -998,6 +1012,7 @@ class Job:
     read_cache: bool
     can_preprocess: bool = False
     inner_workers: int = 1
+    profiles: list = dataclasses.field(default_factory=list)
 
 
 def _build_one(job: Job) -> dict:
@@ -1035,7 +1050,7 @@ def _build_one(job: Job) -> dict:
         # interrupted build never leaves a half-written .material.bin behind.
         with contextlib.redirect_stdout(log), contextlib.redirect_stderr(log):
             compile_material(
-                job.platform,
+                job.profiles or [job.platform],
                 Path(job.mat_dir),
                 tmp,
                 Path(job.albite),
@@ -1322,8 +1337,8 @@ def _print_build_summary(
 # --------------------------------------------------------------------------- #
 # Per-platform build driver
 # --------------------------------------------------------------------------- #
-def build_platform(
-    platform: str,
+def build_target(
+    profiles: list[str],
     args,
     glob_state: dict[str, str],
     albite: Path,
@@ -1332,37 +1347,39 @@ def build_platform(
     from lazurite.project.project_config import ProjectConfig
 
     started = time.perf_counter()
+    label = target_label(profiles)
+    slug = target_slug(profiles)
     cfg = ProjectConfig()
-    cfg.read_json_file(str(SRC / "project.json"), [platform])
+    cfg.read_json_file(str(SRC / "project.json"), list(profiles))
 
     all_materials = discover_materials(cfg)
     selected, partial = _select_materials(all_materials, args.material)
     if args.material and not selected:
-        print(f"{_c('33', 'note:')} {platform}: no material matches {args.material}")
+        print(f"{_c('33', 'note:')} {label}: no material matches {args.material}")
         return 1
 
-    out_dir = ROOT / f"output-{platform}"
-    cache = load_cache(platform)
+    out_dir = ROOT / f"output-{slug}"
+    cache = load_cache(slug)
     global_note = _update_global_cache(cache, glob_state)
     info = FileInfo([Path(path) for path in cfg.include_search_paths])
     todo = _collect_build_todo(selected, out_dir, cache, info, cfg, args, global_note)
     orphans = _find_orphans(partial, cache, all_materials)
-    _print_build_plan(platform, selected, todo)
+    _print_build_plan(label, selected, todo)
 
     if args.dry_run:
         _print_dry_run(todo, orphans)
         return 0
 
     _remove_orphans(out_dir, cache, orphans)
-    _prepare_cache_for_build(platform, cache, todo)
+    _prepare_cache_for_build(slug, cache, todo)
     if not todo:
-        return _finish_empty_build(platform, started, orphans, cache)
+        return _finish_empty_build(slug, started, orphans, cache)
 
     todo = _order_by_cost(todo, cache)
     reporter = Reporter(len(todo))
-    handler = _BuildResultHandler(platform, args, todo, reporter, cache)
+    handler = _BuildResultHandler(slug, args, todo, reporter, cache)
     jobs_list = _make_jobs(
-        platform, todo, out_dir, albite, glob_state, cfg, args, can_preprocess
+        profiles, todo, out_dir, albite, glob_state, cfg, args, can_preprocess
     )
     _print_queued_jobs(todo, args.verbose)
     try:
@@ -1370,10 +1387,10 @@ def build_platform(
     finally:
         handler.flush()  # persist finished materials even on Ctrl-C or an error
 
-    removed = gc_shader_cache(platform, cache)
-    save_cache(platform, cache)
+    removed = gc_shader_cache(slug, cache)
+    save_cache(slug, cache)
     _print_build_summary(
-        platform, len(selected), len(todo), started, handler, removed, args.verbose
+        label, len(selected), len(todo), started, handler, removed, args.verbose
     )
     return 1 if handler.failures else 0
 
@@ -1431,7 +1448,7 @@ def ensure_lazurite(allow_install: bool) -> None:
     manual = f"{sys.executable} -m pip install {LAZURITE_ARCHIVE}"
     if not allow_install:
         raise SetupError(
-            f"{what}.\nRun ./build.sh without --dry-run/--no-install to install it, or:\n"
+            f"{what}.\nRun ./build.py without --dry-run/--no-install to install it, or:\n"
             f"  {manual}"
         )
 
@@ -1605,7 +1622,7 @@ def ensure_albite(explicit: str | None, allow_install: bool) -> Path:
     if not allow_install:
         raise SetupError(
             f"albite is not installed (expected {ROOT / 'albite' / ALBITE_EXE}).\n"
-            f"Run ./build.sh without --dry-run/--no-install to download it, "
+            f"Run ./build.py without --dry-run/--no-install to download it, "
             f"or pass --albite PATH."
         )
     return download_albite()
@@ -1622,41 +1639,56 @@ def albite_supports_preprocess(albite: Path) -> bool:
     return b"--preprocess-only" in (r.stdout + r.stderr)
 
 
-def available_profiles() -> list[str]:
+def available_profiles() -> dict[str, dict]:
     import pyjson5
 
     with open(SRC / "project.json") as f:
-        return list(pyjson5.load(f).get("profiles", {}))
+        return dict(pyjson5.load(f).get("profiles", {}))
 
 
-def _resolve_targets(requested: list[str], profiles: list[str]) -> list[str] | None:
-    targets: list[str] = []
-    for name in requested:
-        if name == "all":
-            candidates = profiles
-        elif name in profiles:
-            candidates = [name]
-        else:
+def _resolve_targets(
+    platforms: list[str], extras: list[str], profiles: dict[str, dict]
+) -> list[list[str]] | None:
+    """One build per platform; every -p profile is merged into each of them."""
+    for name in [*platforms, *extras]:
+        if name != "all" and name not in profiles:
             print(
-                f"error: unknown platform '{name}'. Available: "
+                f"error: unknown profile '{name}'. Available: "
                 f"{', '.join(profiles)}, all"
             )
             return None
+
+    targets: list[str] = []
+    for name in platforms:
+        if name == "all":
+            with_platforms = [n for n, body in profiles.items() if "platforms" in body]
+            candidates = with_platforms or list(profiles)
+        else:
+            candidates = [name]
         for t in candidates:
             if t not in targets:
                 targets.append(t)
-    return targets
+    return [[t, *(e for e in extras if e != t)] for t in targets]
 
 
 def parse_args(argv):
     p = argparse.ArgumentParser(
-        prog="build.sh",
+        prog="build.py",
+        epilog="example: build.py android -p vclouds -m DeferredWater",
     )
     p.add_argument(
         "platforms",
         nargs="*",
         metavar="PLATFORM",
-        help=f"profiles from src/project.json, or 'all' (default: {' '.join(DEFAULT_PLATFORMS)})",
+        help=f"platform profiles from src/project.json, or 'all' (default: {' '.join(DEFAULT_PLATFORMS)})",
+    )
+    p.add_argument(
+        "-p",
+        "--profile",
+        nargs="+",
+        default=[],
+        metavar="NAME",
+        help="extra profiles merged into every build (macros, etc.), e.g. vclouds",
     )
     p.add_argument(
         "-m",
@@ -1726,7 +1758,9 @@ def main(argv=None) -> int:
         return 2
 
     profiles = available_profiles()
-    targets = _resolve_targets(args.platforms or DEFAULT_PLATFORMS, profiles)
+    targets = _resolve_targets(
+        args.platforms or DEFAULT_PLATFORMS, args.profile, profiles
+    )
     if targets is None:
         return 2
 
@@ -1739,8 +1773,8 @@ def main(argv=None) -> int:
         )
     failed = 0
     try:
-        for platform in targets:
-            failed += build_platform(platform, args, glob_state, albite, can_preprocess)
+        for target in targets:
+            failed += build_target(target, args, glob_state, albite, can_preprocess)
     except KeyboardInterrupt:
         print(
             "\ninterrupted — running compiles were cancelled; "
