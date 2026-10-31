@@ -117,7 +117,7 @@ uniform mat4 u_prevViewProj;
 SAMPLER2D(s_SeasonsTexture);
 
 #include "lib/common.glsl"
-#include "lib/noises.glsl"
+// #include "lib/noises.glsl"
 #include "lib/materials.glsl"
 
 layout(location = 0) flat in int v_pbrTextureId;
