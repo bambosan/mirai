@@ -7,6 +7,9 @@
     "include_search_paths": ["include"]
   },
   "profiles": {
+    "vclouds": {
+      "macros": ["VOLUMETRIC_CLOUDS_ENABLED"]
+    },
     "android": {
       "platforms": ["ESSL_310"]
     },
