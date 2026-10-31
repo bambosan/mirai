@@ -19,9 +19,9 @@ vec3 calcAmbientLight(
     vec3 blockAmbient = (blmColor + pow(blmColor, vec3(5.0)) * 10.0)
         * BLOCK_AMBIENT_MULTIPLIER;
 
-    float skylmContrib = lightmap.g * (linearstep(0.9, 1.0, lightmap.g) * 0.5 + 0.5);
-    vec3 skyAmbient = saturation(scatterColor, 0.5) * PI * skylmContrib
-        * SKY_AMBIENT_MULTIPLIER;
+    float skyOcclusion = lightmap.g * lightmap.g
+        * (linearstep(0.9, 1.0, lightmap.g) * 0.5 + 0.5);
+    vec3 skyAmbient = saturation(scatterColor, 0.5) * skyOcclusion * SKY_AMBIENT_MULTIPLIER;
 
     return albedo.rgb * max(
         blockAmbient * albedo.a + skyAmbient * albedo.a * albedo.a,

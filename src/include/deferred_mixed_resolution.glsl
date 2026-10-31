@@ -182,8 +182,8 @@ void main() {
     uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness,
         ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
 
-    vec4 blightColor = vec4(data16.g >> 8, data16.g & 0xFFu,
-        data16.b >> 8, data16.b & 0xFFu) * (1.0 / 255.0);
+    vec4 rawBLightCol = vec4(data16.g >> 8, data16.g & 0xFFu, data16.b >> 8,
+        data16.b & 0xFFu) * (1.0 / 255.0);
     float skyLightmap = float(data16.a & 0xFFu) * (1.0 / 255.0);
     float vanillaAO = float(data16.a >> 8) * (1.0 / 255.0);
 
@@ -193,13 +193,13 @@ void main() {
     float metalness = unpackMetalness(data.a);
     albedo = (1.0 - metalness) * albedo;
 
-    vec3 blmColor = blightColor.rgb * blightColor.a * 6.0;
-    vec3 blockAmbient = (blmColor + pow(blmColor, vec3(5.0)) * 10.0)
+    vec3 blightCol = rawBLightCol.rgb * rawBLightCol.a * 6.0;
+    vec3 blockAmbient = (blightCol + pow(blightCol, vec3(5.0)) * 10.0)
         * BLOCK_AMBIENT_MULTIPLIER;
 
-    float skylmContrib = skyLightmap * (linearstep(0.9, 1.0, skyLightmap) * 0.5 + 0.5);
-    vec3 skyAmbient = saturation(v_scatterColor, 0.5)
-        * PI * skylmContrib * SKY_AMBIENT_MULTIPLIER;
+    float skyOcclusion = skyLightmap * skyLightmap
+        * (linearstep(0.9, 1.0, skyLightmap) * 0.5 + 0.5);
+    vec3 skyAmbient = saturation(v_scatterColor, 0.5) * skyOcclusion * SKY_AMBIENT_MULTIPLIER;
 
     vec3 ambientLight = max(
         blockAmbient * vanillaAO + skyAmbient * vanillaAO * vanillaAO,
