@@ -1,0 +1,16 @@
+{
+    "version": 26,
+    "name": "DeferredMixedResolutionSurfaceRadiance",
+    "parent": "DeferredShadingBase",
+    "buffers": [
+        "CausticsTexture",
+        "ColorMetalnessSubsurface",
+        "DiffuseLighting",
+        "EmissiveAmbientLinearRoughness",
+        "Normal",
+        "PreviousFrameAverageLuminance",
+        "ScatteringBuffer",
+        "SceneDepth",
+        "SpecularLighting"
+    ]
+}

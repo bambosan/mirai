@@ -1,0 +1,15 @@
+{
+    "version": 26,
+    "name": "DeferredMixedResolutionLightingPrepass",
+    "parent": "DeferredShadingBase",
+    "buffers": [
+        "CausticsMultiplier",
+        "CausticsTexture",
+        "ColorMetalnessSubsurface",
+        "EmissiveAmbientLinearRoughness",
+        "Normal",
+        "PreviousFrameAverageLuminance",
+        "SceneDepth",
+        "ShadowCascades"
+    ]
+}

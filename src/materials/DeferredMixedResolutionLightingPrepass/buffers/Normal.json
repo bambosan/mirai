@@ -1,0 +1,15 @@
+{
+    "name": "Normal",
+    "register_slot": 4,
+    "binding_slot": 4,
+    "type": "texture2D",
+    "precision": "lowp",
+    "access": "readonly",
+    "texture_format": "float",
+    "default_texture": "",
+    "unordered_access": false,
+    "slot_count": 1,
+    "texture_path": "",
+    "sampler_state": {},
+    "custom_type_info": {}
+}

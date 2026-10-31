@@ -1,0 +1,15 @@
+{
+    "name": "EmissiveAmbientLinearRoughness",
+    "register_slot": 3,
+    "binding_slot": 3,
+    "type": "texture2D",
+    "precision": "lowp",
+    "access": "readonly",
+    "texture_format": "uint",
+    "default_texture": "",
+    "unordered_access": false,
+    "slot_count": 1,
+    "texture_path": "",
+    "sampler_state": {},
+    "custom_type_info": {}
+}

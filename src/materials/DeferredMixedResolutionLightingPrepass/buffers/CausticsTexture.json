@@ -1,0 +1,15 @@
+{
+    "name": "CausticsTexture",
+    "register_slot": 1,
+    "binding_slot": 1,
+    "type": "texture2DArray",
+    "precision": "lowp",
+    "access": "readonly",
+    "texture_format": "float",
+    "default_texture": "",
+    "unordered_access": false,
+    "slot_count": 1,
+    "texture_path": "",
+    "sampler_state": {},
+    "custom_type_info": {}
+}

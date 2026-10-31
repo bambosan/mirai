@@ -1,0 +1,15 @@
+{
+  "version": 26,
+  "name": "DeferredWater",
+  "parent": "DeferredShadingBase",
+  "buffers": [
+    "CausticsTexture",
+    "ColorMetalnessSubsurface",
+    "EmissiveAmbientLinearRoughness",
+    "Normal",
+    "PreviousFrameAverageLuminance",
+    "ScatteringBuffer",
+    "SceneDepth",
+    "ShadowCascades"
+  ]
+}
