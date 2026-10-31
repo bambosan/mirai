@@ -4,6 +4,7 @@
 SAMPLER2DARRAY(s_ScatteringBuffer);
 
 #include "shadow.glsl"
+#include "clouds.glsl"
 #include "brdf.glsl"
 #include "ibl.glsl"
 #include "froxel_utils.glsl"
@@ -37,7 +38,15 @@ vec3 calcDirectionalLight(
     vec3 normal,
     vec3 absorbColor
 ) {
-    vec2 shadowMap = calcShadowMap(worldPos, normal);
+    vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+    float cloudShadow = calcCloudShadow(worldPos - WorldOrigin.xyz,
+        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x);
+    shadowMap.rg = min(shadowMap.rg,
+        vec2(cloudShadow * CUMULUS_SHADOW_CONTRIBUTION + (1.0 - CUMULUS_SHADOW_CONTRIBUTION)));
+    shadowMap.b = min(shadowMap.b, cloudShadow);
+#endif
 
     vec3 specular = calcSpecular(normal,
         DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, mers.b);
@@ -55,7 +64,7 @@ vec3 calcDirectionalLight(
         * mers.a * albedo.rgb;
 
     return absorbColor * (
-        diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.r
+        diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.b
     ) * SunColor.r;
 }
 

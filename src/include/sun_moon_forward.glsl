@@ -50,6 +50,8 @@ void main() {
     fragColor = vec4(0.0);
 }
 #else
+uniform vec4 Time;
+uniform vec4 WorldOrigin;
 uniform vec4 MoonDir;
 uniform vec4 SunDir;
 uniform vec4 SunMoonColor;
@@ -62,7 +64,7 @@ SAMPLER2D(s_SunMoonTexture);
 SAMPLER2D(s_PreviousFrameAverageLuminance);
 SAMPLER2DARRAY(s_ScatteringBuffer);
 
-#include "lib/atmosphere.glsl"
+#include "lib/clouds.glsl"
 #include "lib/froxel_utils.glsl"
 
 layout(location = 0) in vec4 v_clipPos;
@@ -91,8 +93,7 @@ void main() {
     vec3 unused = calcAtmosphere(atmParams, transmittance);
 
     float disc  = sqrt(smoothstep(cos(0.00436 * 10.0), 1.0, dot(worldDir, SunDir.xyz)));
-    float tsmLum = luminance(transmittance.rgb);
-    vec3 outColor = disc * pow(tsmLum, 1.5) * transmittance.rgb * transmittance.a
+    vec3 outColor = disc * transmittance.rgb * transmittance.a
         * SUN_RADIANCE_MULTIPLIER * 100.0;
 
     if (dot(worldDir, MoonDir.xyz) > 0.0) {
@@ -101,6 +102,14 @@ void main() {
         outColor = step(0.05, texlum) * texlum * transmittance.rgb * transmittance.a
             * MOON_RADIANCE_MULTIPLIER * 5.0;
     }
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+    float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
+    CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
+    float cloudTransmittance =
+        calcCloudTransmittanceOnly(worldDir, 0.0, dither, Time.x, false, cloudSetup);
+    outColor *= cloudTransmittance * cloudTransmittance;
+#endif
 
     if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {
         vec3 projPos = v_clipPos.xyz / v_clipPos.w;

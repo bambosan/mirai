@@ -146,13 +146,13 @@ void main() {
     texturePBRMaterials(s_MatTexture, v_pbrTextureId, v_texcoord0, v_tangent, v_bitangent,
         normal, mers);
 
-    if (fNormal.y > 0.0) {
-        float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
-            * smoothstep(0.45, 0.65, valueNoise((v_worldPos.xz - WorldOrigin.xz) * 0.25))
-            * max(1.0 - SunColor.r, 0.0) * 0.9;
-        mers.b *= (1.0 - puddle);
-        normal = mix(normal, fNormal, puddle);
-    }
+    // if (fNormal.y > 0.0) {
+    //     float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
+    //         * smoothstep(0.45, 0.65, valueNoise((v_worldPos.xz - WorldOrigin.xz) * 0.25))
+    //         * max(1.0 - SunColor.r, 0.0) * 0.9;
+    //     mers.b *= (1.0 - puddle);
+    //     normal = mix(normal, fNormal, puddle);
+    // }
 
     vec4 albedo = texture(s_MatTexture, v_texcoord0);
 #if GEOMETRY_PREPASS_ALPHA_TEST_PASS

@@ -50,6 +50,10 @@ uniform vec4 RenderChunkFogAlpha;
 uniform vec4 CameraIsUnderwater;
 uniform vec4 CameraLightIntensity;
 uniform vec4 SunColor;
+uniform vec4 SunDir;
+uniform vec4 MoonDir;
+uniform vec4 Time;
+uniform vec4 WorldOrigin;
 uniform vec4 FogSkyBlend;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
@@ -64,6 +68,7 @@ SAMPLER2DARRAY(s_ScatteringBuffer);
 
 #include "lib/materials.glsl"
 #include "lib/shadow.glsl"
+#include "lib/clouds.glsl"
 #include "lib/brdf.glsl"
 #include "lib/froxel_utils.glsl"
 #include "lib/space_transf.glsl"
@@ -86,12 +91,18 @@ void main() {
 
     vec3 normal = octToNdirSnorm(texture(s_Normal, v_texcoord0).rg);
 
-    vec2 shadowMap = calcShadowMap(worldPos, normal);
+    float shadowMap = calcShadowMap(worldPos, normal).r;
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+    float cloudShadow = calcCloudShadow(worldPos - WorldOrigin.xyz,
+        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x);
+    shadowMap = min(shadowMap, cloudShadow);
+#endif
 
     vec3 specular = calcSpecular(normal,
         DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, WATER_F0, 0.0);
 
-    vec3 outColor = v_absorbColor * specular * shadowMap.r * SunColor.r;
+    vec3 outColor = v_absorbColor * specular * shadowMap * SunColor.r;
 
     fragColor.a = 0.2;
 
@@ -108,6 +119,24 @@ void main() {
                 fogFactor * fogFactor * BORDER_FOG_INTENSITY);
             fragColor.a = fogFactor * fogFactor * BORDER_FOG_INTENSITY;
         }
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+        float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
+        applyCumulusClouds(
+            outColor,
+            v_absorbColor,
+            v_scatterColor,
+            worldDir,
+            DirectionalLightSourceWorldSpaceDirection.xyz,
+            SunDir.xyz,
+            MoonDir.xyz,
+            SunColor.r,
+            worldDist,
+            dither,
+            Time.r,
+            true
+        );
+#endif
 
         if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {
             vec3 uvw = ndcToVolume(VolumeNearFar.xy, projPos, u_invProj);

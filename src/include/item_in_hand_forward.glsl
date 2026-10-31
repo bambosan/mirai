@@ -136,6 +136,8 @@ uniform vec4 CameraIsUnderwater;
 uniform vec4 u_prevWorldPosOffset;
 uniform mat4 u_viewProj;
 uniform mat4 u_prevViewProj;
+uniform vec4 WorldOrigin;
+uniform vec4 Time;
 
 #ifdef MATERIAL_ITEM_IN_HAND_FORWARD_PBR_TEXTURED
 SAMPLER2D(s_MatTexture);

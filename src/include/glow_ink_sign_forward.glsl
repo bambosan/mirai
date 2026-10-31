@@ -84,6 +84,8 @@ uniform vec4 MERSUniforms;
 uniform vec4 IBLParameters;
 uniform vec4 ConvolutionType;
 uniform vec4 LastSpecularIBLIdx;
+uniform vec4 WorldOrigin;
+uniform vec4 Time;
 
 SAMPLER2D(s_MatTexture);
 SAMPLER2D(s_PreviousFrameAverageLuminance);

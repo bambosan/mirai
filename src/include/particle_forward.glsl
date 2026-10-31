@@ -92,6 +92,8 @@ uniform vec4 PBRTextureFlags;
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
+uniform vec4 WorldOrigin;
+uniform vec4 Time;
 
 SAMPLER2D(s_MERSTexture);
 SAMPLER2D(s_NormalTexture);

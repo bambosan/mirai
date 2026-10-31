@@ -106,6 +106,8 @@ uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 TileLightIntensity;
 uniform vec4 BlockLightColor;
+uniform vec4 WorldOrigin;
+uniform vec4 Time;
 
 SAMPLER2D(s_MatTexture);
 SAMPLER2D(s_PreviousFrameAverageLuminance);

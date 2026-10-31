@@ -82,6 +82,7 @@ USAMPLER2D(s_EmissiveAmbientLinearRoughness);
 #include "lib/materials.glsl"
 #include "lib/space_transf.glsl"
 #include "lib/shadow.glsl"
+#include "lib/clouds.glsl"
 #include "lib/brdf.glsl"
 #include "lib/water_wave.glsl"
 
@@ -112,10 +113,17 @@ void main() {
 
     vec3 normal = octToNdirSnorm(texture(s_Normal, v_texcoord0).rg);
 
-    vec2 shadowMap = calcShadowMap(worldPos, normal);
+    vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+    float cloudShadow = calcCloudShadow(position,
+        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x);
+    shadowMap.rg = min(shadowMap.rg,
+        vec2(cloudShadow * CUMULUS_SHADOW_CONTRIBUTION + (1.0 - CUMULUS_SHADOW_CONTRIBUTION)));
+    shadowMap.b = min(shadowMap.b, cloudShadow);
+#endif
 
     float waterBodyMask = texture(s_CausticsMultiplier, v_texcoord0).r;
-
     if (waterBodyMask < 1.0) {
         float caustic = calcCaustic(position, DirectionalLightSourceWorldSpaceDirection.xyz,
             Time.x) * PI;
@@ -145,7 +153,7 @@ void main() {
 
     fragData0 = depth < 1.0
         ? vec4(v_absorbColor
-            * (diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.r)
+            * (diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.b)
             * SunColor.r + alwaysLit, 1.0)
         : vec4(0.0);
     fragData1 = vec4(waterBodyMask, 0.0, 0.0, 1.0);
@@ -229,7 +237,6 @@ SAMPLER2D(s_PreviousFrameAverageLuminance);
 SAMPLER2DARRAY(s_ScatteringBuffer);
 
 #include "lib/materials.glsl"
-#include "lib/atmosphere.glsl"
 #include "lib/froxel_utils.glsl"
 #include "lib/clouds.glsl"
 #include "lib/space_transf.glsl"
@@ -269,9 +276,36 @@ void main() {
             outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
         }
 
-        vec3 cloudColor = SunDir.y > 0.0 ? v_absorbColor : v_absorbColor * SunColor.r * 0.5;
-        applyCirrusClouds(outColor, worldDir, -WorldOrigin.xyz,
-            DirectionalLightSourceWorldSpaceDirection.xyz, cloudColor, Time.x, isTerrain);
+        applyCirrusClouds(
+            outColor,
+            worldDir,
+            -WorldOrigin.xyz,
+            SunDir.xyz,
+            MoonDir.xyz,
+            v_absorbColor,
+            v_scatterColor,
+            SunColor.r,
+            Time.x,
+            isTerrain
+        );
+
+#if VOLUMETRIC_CLOUDS_ENABLED
+        float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
+        applyCumulusClouds(
+            outColor,
+            v_absorbColor,
+            v_scatterColor,
+            worldDir,
+            DirectionalLightSourceWorldSpaceDirection.xyz,
+            SunDir.xyz,
+            MoonDir.xyz,
+            SunColor.r,
+            worldDist,
+            dither,
+            Time.r,
+            isTerrain
+        );
+#endif
 
         if (isWater) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
