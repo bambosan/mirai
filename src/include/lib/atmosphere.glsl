@@ -139,7 +139,7 @@ vec3 calcAtmosphere(AtmosphereParams params, out vec4 transmittance) {
     if (t1.y > 0.0 && t1.y < params.rayLength) {
         float planetOd = t1.y - max(0.0, t1.x);
         atm.scattering *= mix(vec3(0.3, 0.4, 0.5), vec3(1.0),
-            max(clamp(exp(-planetOd * 1e-6), 0.0, 1.0), 1.0 - params.rain));
+            max(exp(-planetOd * 1e-6), 1.0 - params.rain));
     }
 
     return atm.scattering * M_EXPOSURE;
@@ -205,7 +205,7 @@ void calcAtmLighting(
         cRayleigh,
         cMie,
         cOzone,
-        vec3(0.0, 1.0, 0.0),
+        vec3(0.0, max(sunDir.y, 0.1), 0.0),
         sunDir,
         1e10,
         1.0,
@@ -213,15 +213,11 @@ void calcAtmLighting(
         rain
     );
 
-    AtmosphereParams moonAtmParams = sunAtmParams;
-    moonAtmParams.lightDir = moonDir;
-
     absorbColor = calcLightTransmittance(sunDir.xyz, cRayleigh, cMie, cOzone, 0.75)
         * smoothstep(0.0, 0.1, sunDir.y) * SUN_RADIANCE_MULTIPLIER;
     absorbColor += calcLightTransmittance(moonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
         * smoothstep(0.0, 0.1, moonDir.y) * MOON_RADIANCE_MULTIPLIER;
-
-    scatterColor = calcAtmosphere(sunAtmParams) * SUN_RADIANCE_MULTIPLIER;
+    scatterColor = calcAtmosphere(sunAtmParams) * PI * SUN_RADIANCE_MULTIPLIER;
 }
 
 #endif
