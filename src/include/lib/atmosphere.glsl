@@ -99,7 +99,7 @@ AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t2)
     float phaseR = phase(costh, 0.0, 1.0);
     float phaseM = phase(costh, 0.8, 0.0);
 
-    float desaturate = smoothstep(0.0, 0.1, params.lightDir.y) * 0.75 + 0.25;
+    float desaturate = smoothstep(0.0, 0.25, params.lightDir.y) * 0.75 + 0.25;
     vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS)
         * saturation(atm.lightColor, desaturate);
     vec3 mie = (phaseM * params.occlusion + phaseR * M_FAKE_MS) * atm.lightColor;
@@ -184,6 +184,7 @@ vec3 calcAtmSky(vec3 worldDir, vec3 sunDir, vec3 moonDir, float rain) {
     AtmosphereParams moonAtmParams = sunAtmParams;
     moonAtmParams.lightDir = moonDir;
     moonAtmParams.occlusion = 0.0;
+    moonAtmParams.aerial = 0.1;
 
     vec4 _unused;
     vec3 scattering = calcAtmosphere(sunAtmParams, _unused) * SUN_RADIANCE_MULTIPLIER;
@@ -205,7 +206,7 @@ void calcAtmLighting(
         cRayleigh,
         cMie,
         cOzone,
-        vec3(0.0, max(sunDir.y, 0.1), 0.0),
+        vec3(0.0, max(sunDir.y, 0.5), 0.0),
         sunDir,
         1e10,
         1.0,
@@ -217,7 +218,7 @@ void calcAtmLighting(
         * smoothstep(0.0, 0.1, sunDir.y) * SUN_RADIANCE_MULTIPLIER;
     absorbColor += calcLightTransmittance(moonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
         * smoothstep(0.0, 0.1, moonDir.y) * MOON_RADIANCE_MULTIPLIER;
-    scatterColor = calcAtmosphere(sunAtmParams) * PI * SUN_RADIANCE_MULTIPLIER;
+    scatterColor = calcAtmosphere(sunAtmParams) * (1.0 / M_EXPOSURE) * SUN_RADIANCE_MULTIPLIER;
 }
 
 #endif
