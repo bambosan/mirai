@@ -1674,7 +1674,7 @@ def _resolve_targets(
 def parse_args(argv):
     p = argparse.ArgumentParser(
         prog="build.py",
-        epilog="example: build.py android -p vclouds -m DeferredWater",
+        epilog="example: build.py android -m DeferredWater",
     )
     p.add_argument(
         "platforms",
@@ -1688,7 +1688,7 @@ def parse_args(argv):
         nargs="+",
         default=[],
         metavar="NAME",
-        help="extra profiles merged into every build (macros, etc.), e.g. vclouds",
+        help="extra profiles merged into every build (macros, etc.)",
     )
     p.add_argument(
         "-m",
