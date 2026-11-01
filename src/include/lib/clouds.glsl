@@ -81,7 +81,7 @@ float calcCumulusModel(vec3 pos, float time) {
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
-    float wsculpting = linearstep(0.0, 0.6, worley3d(pos * 0.15 + windDir.xxy * 0.05));
+    float wsculpting = linearstep(0.0, 0.6, worley3d(pos * 0.15 + windDir.xxy * 0.01));
     base = smoothstep(wsculpting * heightFraction, 1.0, base);
     return base;
 }
@@ -224,7 +224,6 @@ void applyCumulusClouds(
     AtmosphereParams moonAtmParams = sunAtmParams;
     moonAtmParams.lightDir = moonDir;
     moonAtmParams.occlusion = 0.0;
-    moonAtmParams.aerial = 0.1;
 
     vec4 transmittance;
     vec3 atmContrib = calcAtmosphere(sunAtmParams, transmittance) * SUN_RADIANCE_MULTIPLIER;
