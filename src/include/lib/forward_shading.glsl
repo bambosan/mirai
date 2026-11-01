@@ -111,7 +111,7 @@ vec3 applyForwardShading(
 
         float fogFactor = isWaterBody
             ? 0.0 : clamp(worldDist / FogAndDistanceControl.z, 0.0, 1.0);
-        outColor = mix(outColor, scatterColor * fogModulator * PI,
+        outColor = mix(outColor, scatterColor * fogModulator,
             fogFactor * fogFactor * BORDER_FOG_INTENSITY);
 
         if (isWaterBody) {

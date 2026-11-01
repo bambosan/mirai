@@ -115,7 +115,7 @@ void main() {
                 * exp(-length(worldPos) * 0.15));
         } else {
             float fogFactor = clamp(wDistNorm, 0.0, 1.0);
-            outColor = mix(outColor, v_scatterColor * fogModulator * PI,
+            outColor = mix(outColor, v_scatterColor * fogModulator,
                 fogFactor * fogFactor * BORDER_FOG_INTENSITY);
             fragColor.a = fogFactor * fogFactor * BORDER_FOG_INTENSITY;
         }

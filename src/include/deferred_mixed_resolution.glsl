@@ -270,7 +270,7 @@ void main() {
 
         if (isTerrain) {
             float fogFactor = isWater ? 0.0 : clamp(wDistNorm, 0.0, 1.0);
-            outColor = mix(outColor, v_scatterColor * fogModulator * PI,
+            outColor = mix(outColor, v_scatterColor * fogModulator,
                 fogFactor * fogFactor * BORDER_FOG_INTENSITY);
         } else {
             outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
