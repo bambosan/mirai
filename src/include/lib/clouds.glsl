@@ -224,15 +224,17 @@ void applyCumulusClouds(
     AtmosphereParams moonAtmParams = sunAtmParams;
     moonAtmParams.lightDir = moonDir;
     moonAtmParams.occlusion = 0.0;
+    moonAtmParams.aerial = 0.1;
 
     vec4 transmittance;
     vec3 atmContrib = calcAtmosphere(sunAtmParams, transmittance) * SUN_RADIANCE_MULTIPLIER;
-    atmContrib += luminance(calcAtmosphere(moonAtmParams, transmittance))
+    vec4 _unused;
+    atmContrib += luminance(calcAtmosphere(moonAtmParams, _unused))
         * MOON_RADIANCE_MULTIPLIER;
 
     clouds.rg *= mix(vec2(0.2, 0.0), vec2(1.0), smoothstep(0.0, 0.1, sunDir.y));
 
-    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain) + clouds.g * scatterColor)
+    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain) + clouds.g * scatterColor * 0.5)
         * saturation(transmittance.rgb, smoothstep(0.2, 0.0, moonDir.y));
     cloudsColor += atmContrib * (1.0 - clouds.a);
     outColor = clouds.a * outColor + cloudsColor;
@@ -306,7 +308,7 @@ float calcCirrusModel(vec2 pos, float time) {
         amplitude *= 0.5;
     }
 
-    return smoothstep(0.5, 0.8, tdensity * 0.533333);
+    return smoothstep(0.45, 1.0, tdensity * 0.533333);
 }
 
 void applyCirrusClouds(
