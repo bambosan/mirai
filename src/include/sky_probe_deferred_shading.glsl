@@ -90,6 +90,7 @@ void main() {
         false
     );
 
+#if VOLUMETRIC_CLOUDS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
     applyCumulusClouds(
         outColor,
@@ -105,6 +106,7 @@ void main() {
         Time.r,
         false
     );
+#endif
 
     if (int(CurrentFace.x) == 3) {
         outColor *= SkyProbeUVFadeParameters.z;
