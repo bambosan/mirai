@@ -1,0 +1,11 @@
+{
+    "version": 26,
+    "name": "RenderChunkPrepass",
+    "parent": "",
+    "buffers": [
+        "MatTexture",
+        "PBRData",
+        "RippleTexture",
+        "SeasonsTexture"
+    ]
+}

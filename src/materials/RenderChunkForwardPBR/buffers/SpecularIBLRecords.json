@@ -1,0 +1,16 @@
+{
+    "name": "SpecularIBLRecords",
+    "register_slot": 8,
+    "binding_slot": 8,
+    "type": "textureCubeArray",
+    "precision": "highp",
+    "access": "readonly",
+    "texture_format": "float",
+    "default_texture": "",
+    "unordered_access": false,
+    "slot_count": 1,
+    "texture_path": "",
+    "unknown": 0,
+    "sampler_state": {},
+    "custom_type_info": {}
+}

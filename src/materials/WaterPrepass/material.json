@@ -1,0 +1,6 @@
+{
+    "version": 26,
+    "name": "WaterPrepass",
+    "parent": "",
+    "buffers": [ "RippleTexture" ]
+}

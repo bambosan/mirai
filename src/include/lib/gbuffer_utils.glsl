@@ -63,4 +63,16 @@ vec3 applyBillboard(vec3 center, vec3 billboardParams) {
     return center - (up * (billboardParams.z - 0.5) + right * (billboardParams.x - 0.5));
 }
 
+vec2 rippleFetch(sampler2D tex, vec2 uv, float frame) {
+    float e = 0.5 / 128.0;
+    uv = e + vec2(uv.x, 1.0 - uv.y) * (1.0 - 2.0 * e);
+    return texture(tex, vec2(uv.x, (frame + uv.y) / 64.0)).rg * 2.0 - 1.0;
+}
+
+vec3 blendRNM(vec3 n1, vec3 n2) {
+    n1 += vec3(0.0, 0.0, 1.0);
+    n2 *= vec3(-1.0, -1.0, 1.0);
+    return normalize(n1 * dot(n1, n2) / n1.z - n2);
+}
+
 #endif

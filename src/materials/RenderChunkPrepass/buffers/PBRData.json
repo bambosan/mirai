@@ -1,0 +1,19 @@
+{
+    "name": "PBRData",
+    "register_slot": 1,
+    "binding_slot": 1,
+    "type": "structBuffer",
+    "precision": "lowp",
+    "access": "readonly",
+    "texture_format": "",
+    "default_texture": "",
+    "unordered_access": true,
+    "slot_count": 1,
+    "texture_path": "",
+    "unknown": 0,
+    "sampler_state": {},
+    "custom_type_info": {
+        "struct": "PBRTextureData",
+        "size": 64
+    }
+}

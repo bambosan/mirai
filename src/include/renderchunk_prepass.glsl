@@ -113,11 +113,13 @@ uniform vec4 WorldOrigin;
 uniform vec4 u_prevWorldPosOffset;
 uniform mat4 u_viewProj;
 uniform mat4 u_prevViewProj;
+uniform vec4 Time;
 
 SAMPLER2D(s_SeasonsTexture);
+SAMPLER2D(s_RippleTexture);
 
 #include "lib/common.glsl"
-// #include "lib/noises.glsl"
+#include "lib/puddle.glsl"
 #include "lib/materials.glsl"
 
 layout(location = 0) flat in int v_pbrTextureId;
@@ -146,14 +148,6 @@ void main() {
     texturePBRMaterials(s_MatTexture, v_pbrTextureId, v_texcoord0, v_tangent, v_bitangent,
         normal, mers);
 
-    // if (fNormal.y > 0.0) {
-    //     float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
-    //         * smoothstep(0.45, 0.65, valueNoise((v_worldPos.xz - WorldOrigin.xz) * 0.25))
-    //         * max(1.0 - SunColor.r, 0.0) * 0.9;
-    //     mers.b *= (1.0 - puddle);
-    //     normal = mix(normal, fNormal, puddle);
-    // }
-
     vec4 albedo = texture(s_MatTexture, v_texcoord0);
 #if GEOMETRY_PREPASS_ALPHA_TEST_PASS
     if (albedo.a < 0.5) discard;
@@ -179,6 +173,23 @@ void main() {
         albedo.rgb *= nColorAvg;
     }
 #endif
+
+    if (fNormal.y > 0.0) {
+        vec2 position = v_worldPos.xz - WorldOrigin.xz;
+
+        float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
+            * smoothstep(0.45, 0.6, snoise(position * 0.075)) * max(1.0 - SunColor.r, 0.0);
+        mers.b *= max(1.0 - puddle, 0.0);
+        albedo.rgb *= (1.0 - puddle * 0.25);
+
+        float rippleF = mod(floor(Time.r * 60.0), 64.0);
+
+        vec2 r0 = rippleFetch(s_RippleTexture, position * 0.3, rippleF);
+        vec2 r1 = rippleFetch(s_RippleTexture,
+            mat2(0.8, 0.6, -0.6, 0.8) * position * 0.4 + vec2(0.37, 0.21),
+            mod(rippleF + 32.0, 64.0));
+        normal = mix(normal, normalize(vec3((r0 + r1) * 0.25, 1.0)).xzy, puddle);
+    }
 
     uvec2 packedLight = packLight(swLightColor(v_lightColor, v_lightmapUV.r));
 

@@ -1,0 +1,16 @@
+{
+    "version": 26,
+    "name": "RenderChunkForwardPBR",
+    "parent": "",
+    "buffers": [
+        "BrdfLUT",
+        "CausticsTexture",
+        "MatTexture",
+        "PBRData",
+        "PreviousFrameAverageLuminance",
+        "RippleTexture",
+        "ScatteringBuffer",
+        "ShadowCascades",
+        "SpecularIBLRecords"
+    ]
+}

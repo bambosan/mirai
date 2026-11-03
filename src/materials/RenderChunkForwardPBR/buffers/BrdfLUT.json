@@ -1,0 +1,16 @@
+{
+    "name": "BrdfLUT",
+    "register_slot": 0,
+    "binding_slot": 0,
+    "type": "texture2D",
+    "precision": "lowp",
+    "access": "readonly",
+    "texture_format": "float",
+    "default_texture": "",
+    "unordered_access": false,
+    "slot_count": 1,
+    "texture_path": "",
+    "unknown": 0,
+    "sampler_state": {},
+    "custom_type_info": {}
+}
