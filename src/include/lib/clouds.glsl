@@ -70,18 +70,18 @@ CloudSetup calcCloudSetup(float direction, float camAltitude) {
     return setup;
 }
 
-float calcCumulusModel(vec3 pos, float time) {
+float calcCumulusModel(vec3 pos, float time, float rain) {
     vec2 windDir = vec2(0.0, time);
     vec2 basePos = (pos.xz + windDir) * 0.025;
 
-    float base = linearstep(0.8, 1.0, worley2d(basePos)) * 0.5;
+    float base = linearstep(max(0.5, rain * 0.8), 1.0, worley2d(basePos)) * 0.5;
 
     float heightFraction = clamp((pos.y - CUMULUS_HEIGHT) / CUMULUS_THICKNESS, 0.0, 1.0);
     base = linearstep(exp(-(1.0 - heightFraction) * 10.0), 1.0, base); //top sculpting
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
-    float wsculpting = linearstep(0.0, 0.6, worley3d(pos * 0.15 + windDir.xxy * 0.01));
+    float wsculpting = linearstep(0.0, 1.0 - rain * 0.4, worley3d(pos * 0.15 + windDir.xxy * 0.01));
     base = smoothstep(wsculpting * heightFraction, 1.0, base);
     return base;
 }
@@ -92,7 +92,8 @@ float calcDirectScattering(
     float extinction,
     float transmittance,
     float costh,
-    float time
+    float time,
+    float rain
 ) {
     float shadow = 0.0;
     float stepSpace = CUMULUS_THICKNESS / max(lightDir.y, 0.01) * 0.25;
@@ -100,7 +101,7 @@ float calcDirectScattering(
 
     for (int i = 0; i < 4; i++) {
         samplePos += lightDir * stepSpace * 0.1;
-        shadow += calcCumulusModel(samplePos, time);
+        shadow += calcCumulusModel(samplePos, time, rain);
     }
 
     float lighting = 0.0;
@@ -131,6 +132,7 @@ vec4 calcCloud(
     float worldDist,
     float dither,
     float time,
+    float rain,
     bool isTerrain,
     CloudSetup setup
 ) {
@@ -150,11 +152,11 @@ vec4 calcCloud(
 
     for (int i = 0; i < setup.stepCounts; i++) {
         vec3 samplePos = rayOrigin + rayDir * (setup.tMin + dither * CUMULUS_VOLUME_STEP_SPACE);
-        float extinction = calcCumulusModel(samplePos, time);
+        float extinction = calcCumulusModel(samplePos, time, rain);
 
         if (extinction > 0.0) {
             float dscattering = calcDirectScattering(samplePos, lightDir, extinction,
-                transmittance, costh, time);
+                transmittance, costh, time, rain);
             float iscattering = clamp((samplePos.y - CUMULUS_HEIGHT) / CUMULUS_THICKNESS, 0.0, 1.0);
             vec2 tscattering = vec2(dscattering, iscattering) * extinction;
 
@@ -201,6 +203,7 @@ void applyCumulusClouds(
         worldDist,
         dither,
         time,
+        rain,
         isTerrain,
         cloudSetup
     );
@@ -240,7 +243,14 @@ void applyCumulusClouds(
 }
 
 float calcCloudTransmittanceOnly(
-    vec3 worldDir, float worldDist, float dither, float time, bool isTerrain, CloudSetup setup) {
+    vec3 worldDir,
+    float worldDist,
+    float dither,
+    float time,
+    float rain,
+    bool isTerrain,
+    CloudSetup setup
+) {
     if (!setup.isValidCloud) return 1.0;
 
     vec3 rayOrigin = -WorldOrigin.xyz;
@@ -252,7 +262,7 @@ float calcCloudTransmittanceOnly(
 
     for (int i = 0; i < setup.stepCounts; i++) {
         vec3 samplePos = rayOrigin + rayDir * (setup.tMin + dither * CUMULUS_VOLUME_STEP_SPACE);
-        float extinction = calcCumulusModel(samplePos, time);
+        float extinction = calcCumulusModel(samplePos, time, rain);
         if (extinction > 0.0) transmittance *= exp(-extinction * CUMULUS_VOLUME_STEP_SPACE);
         if (transmittance < EPSILON) break;
 
@@ -263,7 +273,7 @@ float calcCloudTransmittanceOnly(
     return transmittance;
 }
 
-float calcCloudShadow(vec3 position, vec3 lightDir, float hardness, float time) {
+float calcCloudShadow(vec3 position, vec3 lightDir, float hardness, float time, float rain) {
     float cloudMaxY = CUMULUS_HEIGHT + CUMULUS_THICKNESS;
     if (lightDir.y <= 0.0 || position.y >= cloudMaxY) return 1.0;
 
@@ -281,7 +291,7 @@ float calcCloudShadow(vec3 position, vec3 lightDir, float hardness, float time) 
 
     for (int i = 0; i < CUMULUS_SHADOW_MAX_STEPS; i++) {
         vec3 samplePos = position + lightDir * tMin;
-        float extinction = calcCumulusModel(samplePos, time) * stepLen;
+        float extinction = calcCumulusModel(samplePos, time, rain) * stepLen;
         if (extinction > 0.0) transmittance *= exp(-extinction * hardness);
         if (transmittance < EPSILON) break;
 

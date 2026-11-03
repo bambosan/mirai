@@ -95,7 +95,7 @@ void main() {
 
 #if VOLUMETRIC_CLOUDS_ENABLED
     float cloudShadow = calcCloudShadow(worldPos - WorldOrigin.xyz,
-        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x);
+        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x, SunColor.r);
     shadowMap = min(shadowMap, cloudShadow);
 #endif
 

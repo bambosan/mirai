@@ -106,8 +106,8 @@ void main() {
 #if VOLUMETRIC_CLOUDS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
     CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
-    float cloudTransmittance =
-        calcCloudTransmittanceOnly(worldDir, 0.0, dither, Time.x, false, cloudSetup);
+    float cloudTransmittance = calcCloudTransmittanceOnly(
+        worldDir, 0.0, dither, Time.x, SunMoonColor.r, false, cloudSetup);
     outColor *= cloudTransmittance * cloudTransmittance;
 #endif
 

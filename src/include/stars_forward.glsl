@@ -57,6 +57,7 @@ void main() {
 uniform vec4 Time;
 uniform vec4 WorldOrigin;
 uniform vec4 StarsColor;
+uniform vec4 SunColor;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
 uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
@@ -84,8 +85,8 @@ void main() {
     vec3 worldDir = normalize(v_worldPos);
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
     CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
-    float cloudTransmittance =
-        calcCloudTransmittanceOnly(worldDir, 0.0, dither, Time.x, false, cloudSetup);
+    float cloudTransmittance = calcCloudTransmittanceOnly(
+        worldDir, 0.0, dither, Time.x, StarsColor.r, false, cloudSetup);
     outColor *= cloudTransmittance;
 #endif
 
