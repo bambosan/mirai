@@ -27,7 +27,7 @@ vec3 calcProbeLighting(
         textureLod(s_SpecularIBLRecords, vec4(rv, curr), iblMipLevel).rgb,
         iblParams.a
     );
-    return preFilteredCol;
+    return preFilteredCol * 0.25;
 }
 
 #if DO_INDIRECT_SPECULAR_SHADING_PASS
