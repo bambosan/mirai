@@ -24,6 +24,7 @@
 #define GLASS_F0 vec3(0.08)
 
 #define WATER_EXTINCTION_COEFFICIENTS vec3(0.5, 0.35, 0.3)
+#define WATER_SCATTERING_COEFFICIENTS vec3(0.01, 0.033, 0.05)
 
 float linearstep(float edge0, float edge1, float x) {
     return clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);

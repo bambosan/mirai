@@ -110,7 +110,7 @@ void main() {
         float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
 
         if (CameraIsUnderwater.r > 0.0) {
-            outColor = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * fogModulator * 0.01;
+            outColor = WATER_SCATTERING_COEFFICIENTS * fogModulator * 0.01;
             fragColor.a = smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))
                 * exp(-length(worldPos) * 0.15));
         } else {

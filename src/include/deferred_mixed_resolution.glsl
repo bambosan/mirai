@@ -307,8 +307,7 @@ void main() {
 
         if (isWater) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
-            outColor = mix(outColor, exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0)
-                * fogModulator, 0.01);
+            outColor = mix(outColor, WATER_SCATTERING_COEFFICIENTS * fogModulator, 0.01);
         }
 
         if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {

@@ -67,8 +67,8 @@ void main() {
         waterBody = 0.0;
     if (CameraUnderwaterAndWaterSurfaceBiasAndFalloff.x > 0.0)
         waterBody = 1.0 - waterBody;
-    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0)
-        * phase(cost, 0.65, 0.0) * occlusion * luminance(absorbColor) * 0.01;
+    vec3 waterScattering = WATER_SCATTERING_COEFFICIENTS * luminance(absorbColor) * 0.01
+        * phase(cost, 0.65, 0.0) * occlusion;
 
     vec4 totalScatter = vec4(airScattering, luminance(airScattering * 0.5))
         * CameraLightIntensity.y;
