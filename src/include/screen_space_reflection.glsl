@@ -114,11 +114,8 @@ int doLinearSearch(
         float sceneDepth = sampleDepth(s_GbufferDepth, posSS.xy);
         float sceneLinearDepth = projToLinearDepth(sceneDepth);
 
-        if (sceneLinearDepth <= rayLinearDepth
-            // && prevRayDepth <= (
-            //     sceneLinearDepth + sceneLinearDepth * SSRFadingParamsAndThickness.a
-            // )
-        ) {
+        if (sceneLinearDepth <= rayLinearDepth && prevRayDepth
+            <= (sceneLinearDepth + sceneLinearDepth * SSRFadingParamsAndThickness.a)) {
             foundIter = i;
             foundCoord = posSS;
             break;
@@ -209,16 +206,13 @@ void main() {
         return;
     }
 
-    // float refinedIter = doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
+    float refinedIter = doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
     fragData0.rgb = foundCoord;
 
-    // float rayPercentage = refinedIter / float(stepsCount);
-    // fragData0.a = (foundCoord.x > 0.0 && foundCoord.x < 1.0
-    //     && foundCoord.y > 0.0 && foundCoord.y < 1.0)
-    // ? calcFadingValue(roughness, rayPercentage) : 0.0;
-
-    fragData0.a = float(foundCoord.x > 0.0 && foundCoord.x < 1.0
-        && foundCoord.y > 0.0 && foundCoord.y < 1.0);
+    float rayPercentage = refinedIter / float(stepsCount);
+    fragData0.a = (foundCoord.x > 0.0 && foundCoord.x < 1.0
+        && foundCoord.y > 0.0 && foundCoord.y < 1.0)
+    ? calcFadingValue(roughness, rayPercentage) : 0.0;
 #endif
 
 // currently unused
@@ -242,7 +236,7 @@ void main() {
     vec4 reflColor = vec4(texture(s_RasterColor, currUV).rgb,
         hitData.a);
 
-#if 0
+#if 1
     // apply meh filter
     vec4 mean = vec4(0.0);
     vec4 m2 = vec4(0.0);
