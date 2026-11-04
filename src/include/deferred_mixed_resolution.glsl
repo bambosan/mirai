@@ -276,8 +276,7 @@ void main() {
                 v_absorbColor,
                 v_scatterColor,
                 SunColor.r,
-                Time.x,
-                isTerrain
+                Time.x
             );
 #endif
         }

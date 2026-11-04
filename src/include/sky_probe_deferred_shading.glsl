@@ -93,8 +93,7 @@ void main() {
         v_absorbColor,
         v_scatterColor,
         SunColor.r,
-        Time.x,
-        false
+        Time.x
     );
 #endif
 

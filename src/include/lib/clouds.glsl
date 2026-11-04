@@ -329,15 +329,11 @@ void applyCirrusClouds(
     vec3 absorbColor,
     vec3 scatterColor,
     float rain,
-    float time,
-    bool isTerrain
+    float time
 ) {
-    float tPlane = (CIRRUS_HEIGHT - rayOrigin.y) / worldDir.y;
-    if (isTerrain || tPlane < 0.0
-        || (worldDir.y < 0.0 && rayOrigin.y < CIRRUS_HEIGHT)
-        || (worldDir.y > 0.0 && rayOrigin.y > CIRRUS_HEIGHT)
-    ) return;
+    if (worldDir.y < 0.0 || rayOrigin.y > CIRRUS_HEIGHT) return;
 
+    float tPlane = (CIRRUS_HEIGHT - rayOrigin.y) / worldDir.y;
     vec3 samplePos = rayOrigin + worldDir * tPlane;
     float distFade = smoothstep(0.0, 0.2, worldDir.y);
     float altFade = smoothstep(0.0, 180.0, CIRRUS_HEIGHT - rayOrigin.y);
