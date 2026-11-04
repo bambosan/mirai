@@ -44,8 +44,8 @@ void main() {
 
     vec3 absorbColor = calcLightTransmittance(SunDir.xyz, cRayleigh, cMie, cOzone, 0.75)
         * SUN_RADIANCE_MULTIPLIER;
-    absorbColor += calcLightTransmittance(MoonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
-        * MOON_RADIANCE_MULTIPLIER;
+    // absorbColor += calcLightTransmittance(MoonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
+    //     * MOON_RADIANCE_MULTIPLIER;
     absorbColor *= smoothstep(0.0, 0.1, DirectionalLightSourceWorldSpaceDirection.y);
 
     float mie = phase(cost, 0.6, 0.0) * occlusion * SunColor.r
