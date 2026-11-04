@@ -82,7 +82,6 @@ out vec4 fragColor;
 
 void main() {
     float depth = sampleDepth(s_SceneDepth, v_texcoord0);
-
     vec3 projPos = vec3(v_projPos, depth);
     vec3 worldPos = projToWorld(projPos, u_invViewProj);
     vec3 worldDir = normalize(worldPos);
@@ -94,8 +93,13 @@ void main() {
     float shadowMap = calcShadowMap(worldPos, normal).r;
 
 #if CUMULUS_ENABLED
-    float cloudShadow = calcCloudShadow(worldPos - WorldOrigin.xyz,
-        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x, SunColor.r);
+    float cloudShadow = calcCloudShadow(
+        worldPos - WorldOrigin.xyz,
+        DirectionalLightSourceWorldSpaceDirection.xyz,
+        2.0,
+        Time.x,
+        SunColor.r
+    );
     shadowMap = min(shadowMap, cloudShadow);
 #endif
 

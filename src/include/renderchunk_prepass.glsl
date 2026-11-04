@@ -124,10 +124,10 @@ layout(location = 4) in vec3 v_normal;
 layout(location = 5) in vec3 v_worldPos;
 layout(location = 6) in vec3 v_lightColor;
 layout(location = 7) in vec2 v_lightmapUV;
+layout(location = 9) in vec2 v_texcoord0;
 #if SEASONS__OFF
 layout(location = 8) in vec2 v_ditheringAndMaskTinting;
 #endif
-layout(location = 9) in vec2 v_texcoord0;
 
 layout(location = 0) out uvec4 fragData0;
 layout(location = 1) out vec4 fragData1;
@@ -142,10 +142,27 @@ void main() {
     texturePBRMaterials(s_MatTexture, v_pbrTextureId, v_texcoord0, v_tangent, v_bitangent,
         normal, mers);
 
+    if (fNormal.y > 0.0) {
+        vec2 position = v_worldPos.xz - WorldOrigin.xz;
+
+        float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
+            * smoothstep(0.45, 0.6, snoise(position * 0.075)) * max(1.0 - SunColor.r, 0.0);
+        mers.b *= max(1.0 - puddle, 0.0);
+
+        float rippleF = mod(floor(Time.r * 60.0), 64.0);
+
+        vec2 r0 = rippleFetch(s_RippleTexture, position * 0.3, rippleF);
+        vec2 r1 = rippleFetch(s_RippleTexture,
+            mat2(0.8, 0.6, -0.6, 0.8) * position * 0.4 + vec2(0.37, 0.21),
+            mod(rippleF + 32.0, 64.0));
+        normal = mix(normal, normalize(vec3((r0 + r1) * 0.25, 1.0)).xzy, puddle);
+    }
+
     vec4 albedo = texture(s_MatTexture, v_texcoord0);
 #if GEOMETRY_PREPASS_ALPHA_TEST_PASS
     if (albedo.a < 0.5) discard;
 #endif
+
 #if SEASONS__ON
     float vanillaAO = v_color0.a;
     albedo.rgb *= mix(vec3(1.0), texture(s_SeasonsTexture, v_color0.rg).rgb * 2.0, v_color0.b);
@@ -164,25 +181,9 @@ void main() {
             albedo.rgb *= nColor;
             vanillaAO /= nColorAvg;
         }
-        albedo.rgb *= nColorAvg;
+        albedo.rgb *= min(0.5, nColorAvg);
     }
 #endif
-
-    if (fNormal.y > 0.0) {
-        vec2 position = v_worldPos.xz - WorldOrigin.xz;
-
-        float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
-            * smoothstep(0.45, 0.6, snoise(position * 0.075)) * max(1.0 - SunColor.r, 0.0);
-        mers.b *= max(1.0 - puddle, 0.0);
-
-        float rippleF = mod(floor(Time.r * 60.0), 64.0);
-
-        vec2 r0 = rippleFetch(s_RippleTexture, position * 0.3, rippleF);
-        vec2 r1 = rippleFetch(s_RippleTexture,
-            mat2(0.8, 0.6, -0.6, 0.8) * position * 0.4 + vec2(0.37, 0.21),
-            mod(rippleF + 32.0, 64.0));
-        normal = mix(normal, normalize(vec3((r0 + r1) * 0.25, 1.0)).xzy, puddle);
-    }
 
     uvec2 packedLight = packLight(swLightColor(v_lightColor, v_lightmapUV.r));
 

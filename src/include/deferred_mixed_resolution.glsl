@@ -95,7 +95,6 @@ layout(location = 1) out vec4 fragData1;
 
 void main() {
     float depth = sampleDepth(s_SceneDepth, v_texcoord0);
-
     vec3 worldPos = projToWorld(vec3(v_projPos, depth), u_invViewProj);
     vec3 worldDir = normalize(worldPos);
     vec3 position = worldPos - WorldOrigin.xyz;
@@ -113,11 +112,18 @@ void main() {
 
     vec3 normal = octToNdirSnorm(texture(s_Normal, v_texcoord0).rg);
 
+    vec3 alwaysLit = albedo * emissive * EMISSIVE_MATERIAL_INTENSITY;
+
     vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
 
 #if CUMULUS_ENABLED
-    float cloudShadow = calcCloudShadow(position,
-        DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x, SunColor.r);
+    float cloudShadow = calcCloudShadow(
+        position,
+        DirectionalLightSourceWorldSpaceDirection.xyz,
+        2.0,
+        Time.x,
+        SunColor.r
+    );
     shadowMap.rg = min(shadowMap.rg,
         vec2(cloudShadow * CUMULUS_SHADOW_CONTRIBUTION + (1.0 - CUMULUS_SHADOW_CONTRIBUTION)));
     shadowMap.b = min(shadowMap.b, cloudShadow);
@@ -132,12 +138,10 @@ void main() {
             : shadowMap * (caustic + 1.0);
     }
 
-    vec3 alwaysLit = albedo * emissive * EMISSIVE_MATERIAL_INTENSITY;
-
     vec3 specular = calcSpecular(normal,
         DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, roughness);
 
-    albedo = (1.0 - metalness) * albedo;
+    albedo *= (1.0 - metalness);
 
     subsurface *= linearstep(
         ShadowFilterOffsetAndRangeFarAndMapSizeAndNormalOffsetStrength.y - 16.0,
@@ -191,7 +195,7 @@ void main() {
 
     vec3 albedo = toLinear(data.rgb);
     float metalness = unpackMetalness(data.a);
-    albedo = (1.0 - metalness) * albedo;
+    albedo *= (1.0 - metalness);
 
     vec3 blightCol = rawBLightCol.rgb * rawBLightCol.a * 6.0;
     vec3 blockAmbient = (blightCol + pow(blightCol, vec3(5.0)) * 10.0)
@@ -248,7 +252,6 @@ out vec4 fragData0;
 
 void main() {
     float depth = sampleDepth(s_SceneDepth, v_texcoord0);
-
     vec3 projPos = vec3(v_projPos, depth);
     vec3 worldPos = projToWorld(projPos, u_invViewProj);
     vec3 worldDir = normalize(worldPos);
@@ -261,33 +264,23 @@ void main() {
     if (isTerrain) outColor = texture(s_DiffuseLighting, v_texcoord0).rgb;
 
     if (isOverworld(FogSkyBlend.g)) {
-        bool isWater = texture(s_SpecularLighting, v_texcoord0).r < 1.0
-            && FogAndDistanceControl.r < EPSILON;
-
-        float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
-
-        if (isTerrain) {
-            float fogFactor = isWater ? 0.0 : clamp(wDistNorm, 0.0, 1.0);
-            outColor = mix(outColor, v_scatterColor * fogModulator,
-                fogFactor * fogFactor * BORDER_FOG_INTENSITY);
-        } else {
+        if (!isTerrain) {
             outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
-        }
-
 #if CIRRUS_ENABLED
-        applyCirrusClouds(
-            outColor,
-            worldDir,
-            -WorldOrigin.xyz,
-            SunDir.xyz,
-            MoonDir.xyz,
-            v_absorbColor,
-            v_scatterColor,
-            SunColor.r,
-            Time.x,
-            isTerrain
-        );
+            applyCirrusClouds(
+                outColor,
+                worldDir,
+                -WorldOrigin.xyz,
+                SunDir.xyz,
+                MoonDir.xyz,
+                v_absorbColor,
+                v_scatterColor,
+                SunColor.r,
+                Time.x,
+                isTerrain
+            );
 #endif
+        }
 
 #if CUMULUS_ENABLED
         float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
@@ -307,9 +300,18 @@ void main() {
         );
 #endif
 
-        if (isWater) {
+        float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
+
+        if (texture(s_SpecularLighting, v_texcoord0).r < 1.0
+            && FogAndDistanceControl.r < EPSILON) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             outColor = mix(outColor, WATER_SCATTERING_COEFFICIENTS * fogModulator, 0.01);
+        } else {
+            if (isTerrain) {
+                float fogFactor = clamp(wDistNorm, 0.0, 1.0);
+                outColor = mix(outColor, v_scatterColor * fogModulator,
+                    fogFactor * fogFactor * BORDER_FOG_INTENSITY);
+            }
         }
 
         if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {

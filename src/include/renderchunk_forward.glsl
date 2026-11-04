@@ -170,8 +170,8 @@ void main() {
         albedo.rgb *= nColor;
         vanillaAO /= nColorAvg;
     }
-    albedo.rgb *= nColorAvg;
-    albedo.rgb = toLinear(albedo.rgb);
+
+    albedo.rgb = toLinear(albedo.rgb * min(0.5, nColorAvg));
 
     vec3 f0 = mix(GLASS_F0, albedo.rgb, mers.r);
 

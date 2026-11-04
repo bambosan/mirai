@@ -87,7 +87,7 @@ vec3 applyForwardShading(
     vec2 lightmap
 ) {
     vec3 worldDir = normalize(worldPos);
-    albedo.rgb = albedo.rgb * (1.0 - mers.r);
+    albedo.rgb *= (1.0 - mers.r);
 
     vec3 blmColor = swLightColor(lightColor, lightmap.r);
     vec3 ambientLight = calcAmbientLight(albedo, blmColor, scatterColor, absorbColor, lightmap);
@@ -97,6 +97,7 @@ vec3 applyForwardShading(
     vec3 outColor = ambientLight + direcLight + alwaysLit;
 
     float worldDist = length(worldPos);
+    float wDistNorm = worldDist / FogAndDistanceControl.z;
 
     if (isOverworld(FogSkyBlend.g)) {
         float occluder = linearstep(0.7, 1.0, lightmap.g);
@@ -112,16 +113,14 @@ vec3 applyForwardShading(
         );
 
         float fogModulator = luminance(absorbColor) * CameraLightIntensity.y;
-        bool isWaterBody = CausticsParameters.a > 0.0;
 
-        float fogFactor = isWaterBody
-            ? 0.0 : clamp(worldDist / FogAndDistanceControl.z, 0.0, 1.0);
-        outColor = mix(outColor, scatterColor * fogModulator,
-            fogFactor * fogFactor * BORDER_FOG_INTENSITY);
-
-        if (isWaterBody) {
+        if (CausticsParameters.a > 0.0) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             outColor = mix(outColor, WATER_SCATTERING_COEFFICIENTS * fogModulator, 0.01);
+        } else {
+            float fogFactor = clamp(wDistNorm, 0.0, 1.0);
+            outColor = mix(outColor, scatterColor * fogModulator,
+                fogFactor * fogFactor * BORDER_FOG_INTENSITY);
         }
 
         if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.r > 0.0) {
@@ -130,7 +129,6 @@ vec3 applyForwardShading(
             outColor = outColor * volumetricFog.a + volumetricFog.rgb;
         }
     } else {
-        float wDistNorm = worldDist / FogAndDistanceControl.z;
         float borderFog = clamp((wDistNorm + RenderChunkFogAlpha.x
             - FogAndDistanceControl.x) * FogAndDistanceControl.y, 0.0, 1.0);
         vec3 linFogColor = toLinear(FogColor.rgb) * (1.0 / EXPOSURE_MULTIPLIER);
