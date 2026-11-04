@@ -1,3 +1,5 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -36,11 +38,6 @@ uniform vec4 SSRTemporalAccumulationParams;
 uniform vec4 CameraData;
 uniform vec4 ScreenSize;
 uniform vec4 ViewportScale;
-uniform mat4 u_view;
-uniform mat4 u_proj;
-uniform mat4 u_invProj;
-uniform mat4 u_prevViewProj;
-uniform mat4 u_invViewProj;
 
 SAMPLER2D(s_GbufferDepth);
 SAMPLER2D(s_GbufferNormal);

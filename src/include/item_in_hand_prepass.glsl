@@ -1,15 +1,12 @@
 #include "lib/taau_utils.glsl"
 #include "lib/actor_utils.glsl"
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_viewProj;
-uniform mat4 u_view;
-uniform mat4 u_proj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 uniform mat4 PrevWorld;
 uniform vec4 SubPixelOffset;
 uniform vec4 UVAnimation;
@@ -99,9 +96,6 @@ uniform vec4 MultiplicativeTintColor;
 uniform vec4 BlockLightColor;
 uniform vec4 TileLightIntensity;
 uniform vec4 SunColor;
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
 
 #ifdef MATERIAL_ITEM_IN_HAND_PREPASS_TEXTURED
 SAMPLER2D(s_MatTexture);

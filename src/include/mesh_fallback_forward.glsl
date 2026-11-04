@@ -1,12 +1,11 @@
 #include "lib/atmosphere.glsl"
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_viewProj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 SunColor;
@@ -75,7 +74,6 @@ uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
 uniform vec4 IBLParameters;
 uniform vec4 ConvolutionType;
 uniform vec4 LastSpecularIBLIdx;
-uniform mat4 u_invProj;
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 CameraIsUnderwater;

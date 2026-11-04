@@ -1,4 +1,5 @@
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
@@ -7,9 +8,6 @@
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 SunColor;
-uniform mat4 u_viewProj;
-uniform mat4 u_view;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 
 #include "lib/atmosphere.glsl"
 
@@ -72,8 +70,6 @@ uniform vec4 AmbientLightParams;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
 uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
-uniform mat4 u_invViewProj;
-uniform mat4 u_invProj;
 uniform vec4 CameraIsUnderwater;
 uniform vec4 CameraLightIntensity;
 uniform vec4 CausticsParameters;

@@ -1,3 +1,5 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -42,7 +44,6 @@ uniform vec4 IBLParameters;
 uniform vec4 LastSpecularIBLIdx;
 uniform vec4 FogAndDistanceControl;
 uniform vec4 SSRParameters;
-uniform mat4 u_invViewProj;
 
 SAMPLER2D(s_ColorMetalnessSubsurface);
 SAMPLER2D(s_Normal);

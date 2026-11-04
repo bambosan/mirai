@@ -1,14 +1,11 @@
 #include "lib/taau_utils.glsl"
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_viewProj;
-uniform mat4 u_view;
-uniform mat4 u_proj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 uniform vec4 SubPixelOffset;
 
 in vec4 a_color0;
@@ -67,10 +64,6 @@ void main() {
 // FRAGMENT SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__FRAGMENT
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
-
 struct TextureShiftBuffer {
     float preUV0;
     float preUV1;

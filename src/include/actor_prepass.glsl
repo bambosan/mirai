@@ -1,6 +1,7 @@
 #include "lib/actor_utils.glsl"
 #include "lib/taau_utils.glsl"
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 #if !DEPTH_ONLY_ALPHA_TEST_PASS && !DEPTH_ONLY_OPAQUE_PASS
     #define HAS_COMMON_IO 1
@@ -37,9 +38,6 @@
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_view;
-uniform mat4 u_proj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 uniform mat4 Bones[8];
 uniform mat4 PrevBones[8];
 uniform mat4 PrevWorld;
@@ -147,9 +145,6 @@ uniform vec4 PatternUVOffsetsAndScales[7];
 uniform vec4 BlockLightColor;
 uniform vec4 TileLightIntensity;
 uniform vec4 SunColor;
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
 
 SAMPLER2D(s_MatTexture);
 SAMPLER2D(s_MatTexture1);

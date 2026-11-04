@@ -1,3 +1,5 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -7,9 +9,6 @@ void main() {
     gl_Position = vec4(0.0);
 }
 #else
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
-uniform mat4 u_viewProj;
-
 #include "lib/gbuffer_utils.glsl"
 
 in vec4 a_color0;
@@ -61,7 +60,6 @@ uniform vec4 SunColor;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
 uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
-uniform mat4 u_invProj;
 
 SAMPLER2D(s_PreviousFrameAverageLuminance);
 SAMPLER2DARRAY(s_ScatteringBuffer);

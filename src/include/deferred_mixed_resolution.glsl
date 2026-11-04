@@ -1,3 +1,5 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -70,8 +72,6 @@ uniform vec4 Time;
 uniform vec4 WorldOrigin;
 uniform vec4 FogAndDistanceControl;
 uniform vec4 SunColor;
-uniform mat4 u_invViewProj;
-uniform mat4 u_view;
 
 SAMPLER2D(s_ColorMetalnessSubsurface);
 SAMPLER2D(s_Normal);
@@ -227,8 +227,6 @@ uniform vec4 FogSkyBlend;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
 uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
-uniform mat4 u_invViewProj;
-uniform mat4 u_invProj;
 
 SAMPLER2D(s_SceneDepth);
 SAMPLER2D(s_DiffuseLighting);

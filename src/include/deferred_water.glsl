@@ -1,3 +1,5 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -58,8 +60,6 @@ uniform vec4 FogSkyBlend;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
 uniform vec4 VolumeScatteringEnabledAndPointLightVolumetricsEnabled;
-uniform mat4 u_invViewProj;
-uniform mat4 u_invProj;
 
 SAMPLER2D(s_Normal);
 SAMPLER2D(s_SceneDepth);

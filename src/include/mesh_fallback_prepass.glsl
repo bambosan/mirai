@@ -1,11 +1,10 @@
 #include "lib/gbuffer_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_viewProj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
 uniform vec4 UVAnimation;
 
 in vec4 a_color0;
@@ -62,9 +61,6 @@ uniform vec4 BlockLightColor;
 uniform vec4 TileLightIntensity;
 uniform vec4 CurrentColor;
 uniform vec4 MERSUniforms;
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
 
 SAMPLER2D(s_MatTexture);
 

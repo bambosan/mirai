@@ -1,4 +1,5 @@
 #include "lib/taau_utils.glsl"
+#include "lib/bgfx_uniforms.glsl"
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
@@ -14,8 +15,6 @@ uniform vec4 PrevPositionForwardOffset;
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 SunColor;
-uniform mat4 u_view;
-uniform mat4 u_proj;
 uniform vec4 SubPixelOffset;
 
 #include "lib/atmosphere.glsl"
@@ -81,9 +80,6 @@ void main() {
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__FRAGMENT
 uniform vec4 OcclusionHeightOffset;
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
 
 SAMPLER2D(s_LightingTexture);
 SAMPLER2D(s_OcclusionTexture);

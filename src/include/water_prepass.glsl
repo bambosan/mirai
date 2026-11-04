@@ -1,12 +1,9 @@
+#include "lib/bgfx_uniforms.glsl"
+
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform mat4 u_viewProj;
-uniform mat4 u_view;
-uniform mat4 u_proj;
-uniform mat4 u_model[BGFX_CONFIG_MAX_BONES];
-
 #include "lib/gbuffer_utils.glsl"
 
 in vec2 a_texcoord1;
@@ -75,7 +72,6 @@ void main() {
 #include "lib/froxel_utils.glsl"
 
 uniform vec4 VolumeNearFar;
-uniform mat4 u_invProj;
 
 layout(location = 0) in vec3 v_normal;
 layout(location = 1) in vec3 v_worldPos;
@@ -93,9 +89,6 @@ void main() {
 #if DO_WATER_SURFACE_BUFFER_PASS
 uniform vec4 WorldOrigin;
 uniform vec4 Time;
-uniform vec4 u_prevWorldPosOffset;
-uniform mat4 u_viewProj;
-uniform mat4 u_prevViewProj;
 uniform vec4 SunColor;
 
 SAMPLER2D(s_RippleTexture);
