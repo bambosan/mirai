@@ -40,7 +40,7 @@ vec3 calcDirectionalLight(
 ) {
     vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
     float cloudShadow = calcCloudShadow(
         worldPos - WorldOrigin.xyz,
         DirectionalLightSourceWorldSpaceDirection.xyz,

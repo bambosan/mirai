@@ -7,8 +7,11 @@
     "include_search_paths": ["include"]
   },
   "profiles": {
-    "vclouds": {
-      "macros": ["VOLUMETRIC_CLOUDS_ENABLED"]
+    "cumulus": {
+      "macros": ["CUMULUS_ENABLED"]
+    },
+    "cirrus": {
+      "macros": ["CIRRUS_ENABLED"]
     },
     "android": {
       "platforms": ["ESSL_310"]

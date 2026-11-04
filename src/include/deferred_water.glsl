@@ -93,7 +93,7 @@ void main() {
 
     float shadowMap = calcShadowMap(worldPos, normal).r;
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
     float cloudShadow = calcCloudShadow(worldPos - WorldOrigin.xyz,
         DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x, SunColor.r);
     shadowMap = min(shadowMap, cloudShadow);
@@ -120,7 +120,7 @@ void main() {
             fragColor.a = fogFactor * fogFactor * BORDER_FOG_INTENSITY;
         }
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
         float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
         applyCumulusClouds(
             outColor,

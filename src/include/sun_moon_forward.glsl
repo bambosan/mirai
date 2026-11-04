@@ -101,7 +101,7 @@ void main() {
             * MOON_RADIANCE_MULTIPLIER * 5.0;
     }
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
     CloudSetup cloudSetup = calcCloudSetup(worldDir.y, -WorldOrigin.y);
     float cloudTransmittance = calcCloudTransmittanceOnly(

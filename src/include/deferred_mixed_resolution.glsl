@@ -115,7 +115,7 @@ void main() {
 
     vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
     float cloudShadow = calcCloudShadow(position,
         DirectionalLightSourceWorldSpaceDirection.xyz, 2.0, Time.x, SunColor.r);
     shadowMap.rg = min(shadowMap.rg,
@@ -274,6 +274,7 @@ void main() {
             outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
         }
 
+#if CIRRUS_ENABLED
         applyCirrusClouds(
             outColor,
             worldDir,
@@ -286,8 +287,9 @@ void main() {
             Time.x,
             isTerrain
         );
+#endif
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
         float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
         applyCumulusClouds(
             outColor,

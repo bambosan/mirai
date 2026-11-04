@@ -16,18 +16,22 @@ uniform vec4 SunColor;
 in vec3 a_position;
 in vec2 a_texcoord0;
 
+#if CIRRUS_ENABLED || CUMULUS_ENABLED
 layout(location = 0) flat out vec3 v_absorbColor;
+layout(location = 3) flat out vec3 v_scatterColor;
+#endif
 layout(location = 1) out vec2 v_texcoord0;
 layout(location = 2) out vec2 v_projPos;
-layout(location = 3) flat out vec3 v_scatterColor;
 
 void main() {
     v_texcoord0 = a_texcoord0;
     v_projPos = a_position.xy * 2.0 - 1.0;
+#if CIRRUS_ENABLED || CUMULUS_ENABLED
     vec3 absorbColor, scatterColor;
     calcAtmLighting(SunDir.xyz, MoonDir.xyz, SunColor.r, absorbColor, scatterColor);
     v_absorbColor = absorbColor;
     v_scatterColor = scatterColor;
+#endif
     gl_Position = vec4(a_position.xy * 2.0 - 1.0, a_position.z, 1.0);
 }
 #endif
@@ -59,10 +63,12 @@ SAMPLER2D(s_SceneDepth);
 #include "lib/clouds.glsl"
 #include "lib/space_transf.glsl"
 
+#if CIRRUS_ENABLED || CUMULUS_ENABLED
 layout(location = 0) flat in vec3 v_absorbColor;
+layout(location = 3) flat in vec3 v_scatterColor;
+#endif
 layout(location = 1) in vec2 v_texcoord0;
 layout(location = 2) in vec2 v_projPos;
-layout(location = 3) flat in vec3 v_scatterColor;
 
 out vec4 fragColor;
 
@@ -77,6 +83,7 @@ void main() {
 
     vec3 outColor = calcAtmSky(worldDir, SunDir.xyz, MoonDir.xyz, SunColor.r);
 
+#if CIRRUS_ENABLED
     applyCirrusClouds(
         outColor,
         worldDir,
@@ -89,8 +96,9 @@ void main() {
         Time.x,
         false
     );
+#endif
 
-#if VOLUMETRIC_CLOUDS_ENABLED
+#if CUMULUS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
     applyCumulusClouds(
         outColor,
