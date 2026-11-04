@@ -97,7 +97,7 @@ void main() {
     if (dot(worldDir, MoonDir.xyz) > 0.0) {
         vec3 tex = toLinear(texture(s_SunMoonTexture, v_texcoord0).rgb);
         float texlum = luminance(tex);
-        outColor = step(0.05, texlum) * texlum * transmittance.rgb * transmittance.a
+        outColor = step(0.05, texlum) * texlum * saturation(transmittance.rgb, 0.5) * transmittance.a
             * MOON_RADIANCE_MULTIPLIER * 5.0;
     }
 
