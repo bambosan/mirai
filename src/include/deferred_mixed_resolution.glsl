@@ -154,6 +154,9 @@ void main() {
     vec3 diffuse = mix(fdiffuse, wdiffuse, subsurface) * albedo;
     vec3 tDiffuse = diffuseWrap(-normal,
         DirectionalLightSourceWorldSpaceDirection.xyz, 0.5) * subsurface * albedo;
+    tDiffuse *= (1.0 + shadowMap.g
+        * phase(dot(DirectionalLightSourceWorldSpaceDirection.xyz, worldDir), 0.6, 0.0)
+        * 2.0 * subsurface * PI);
 
     fragData0 = depth < 1.0
         ? vec4(v_absorbColor

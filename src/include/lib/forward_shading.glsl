@@ -67,6 +67,9 @@ vec3 calcDirectionalLight(
     vec3 diffuse = mix(fdiffuse, wdiffuse, mers.a) * albedo.rgb;
     vec3 tDiffuse = diffuseWrap(-normal, DirectionalLightSourceWorldSpaceDirection.xyz, 0.5)
         * mers.a * albedo.rgb;
+    tDiffuse *= (1.0 + shadowMap.g
+        * phase(dot(DirectionalLightSourceWorldSpaceDirection.xyz, worldDir), 0.6, 0.0)
+        * 2.0 * mers.a * PI);
 
     return absorbColor * (
         diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.b
