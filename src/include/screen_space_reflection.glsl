@@ -238,14 +238,17 @@ void main() {
     vec4 mean = vec4(0.0);
     vec4 m2 = vec4(0.0);
     float count = 0.0;
+    vec4 nReflCol = vec4(0.0);
 
     for (int x = -1; x <= 1; ++x) {
         for (int y = -1; y <= 1; ++y) {
             vec2 nUV = v_texcoord0 + vec2(x, y) * ScreenSize.zw;
             vec4 nHitData = texture(s_InputTexture, nUV);
-            float nDepth = sampleDepth(s_GbufferDepth, nHitData.xy);
-            vec2 nCurrUV = getPreviousUV(vec3(nHitData.xy * 2.0 - 1.0, nDepth));
-            vec4 nReflCol = vec4(texture(s_RasterColor, nCurrUV).rgb, nHitData.a);
+            if (nHitData.a > 0.0) {
+                float nDepth = sampleDepth(s_GbufferDepth, nHitData.xy);
+                vec2 nCurrUV = getPreviousUV(vec3(nHitData.xy * 2.0 - 1.0, nDepth));
+                nReflCol = vec4(texture(s_RasterColor, nCurrUV).rgb, nHitData.a);
+            }
 
             count += 1.0;
             vec4 delta = nReflCol - mean;
