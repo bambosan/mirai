@@ -146,7 +146,7 @@ void main() {
         vec2 position = v_worldPos.xz - WorldOrigin.xz;
 
         float puddle = smoothstep(0.7, 1.0, v_lightmapUV.y)
-            * smoothstep(0.45, 0.6, snoise(position * 0.075)) * max(1.0 - SunColor.r, 0.0);
+            * smoothstep(0.45, 0.6, snoise(position * 0.05)) * max(1.0 - SunColor.r, 0.0);
         mers.b *= max(1.0 - puddle, 0.0);
 
         float rippleF = mod(floor(Time.r * 60.0), 64.0);
