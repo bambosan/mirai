@@ -134,8 +134,10 @@ void main() {
         + OcclusionHeightOffset.x) / 255.0;
     float lintensity = float(bytes.y >> 2) / 63.0 * 6.0;
     vec3 lightColor = vec3(bytes.z >> 4, bytes.w & 15u, bytes.w >> 4) / 15.0 * lintensity;
-    vec3 blockAmbient = lightColor - lightColor
-        * clamp(v_occlusionHeight - occHeightThreshold, 0.0, 1.0) * 25.0;
+    vec3 blightCol = max(lightColor - lightColor
+        * clamp(v_occlusionHeight - occHeightThreshold, 0.0, 1.0) * 25.0, vec3(0.0));
+    vec3 blockAmbient = (blightCol + pow(blightCol, vec3(5.0)) * 10.0)
+        * BLOCK_AMBIENT_MULTIPLIER;
 
     vec3 outColor = albedo.rgb * luminance(v_absorbColor) * (1.0 + blockAmbient);
     outColor = preExposeLighting(outColor, texture(s_PreviousFrameAverageLuminance, vec2(0.5)).r);
