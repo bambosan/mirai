@@ -38,6 +38,7 @@ void main() {
     vec3 worldPos0 = projToWorld(vec3(v_projPos, depth0), u_invViewProj);
     vec3 worldPos1 = projToWorld(vec3(v_projPos, depth1), u_invViewProj);
 
-    fragColor = vec4(exp(-WATER_EXTINCTION_COEFFICIENTS * distance(worldPos0, worldPos1)), 1.0);
+    fragColor = vec4(min(vec3(0.5),
+        exp(-WATER_EXTINCTION_COEFFICIENTS * distance(worldPos0, worldPos1))), 1.0);
 }
 #endif
