@@ -108,7 +108,7 @@ void main() {
 
     vec3 outColor = v_absorbColor * specular * shadowMap * SunColor.r;
 
-    fragColor.a = 0.2;
+    fragColor.a = 0.0;
 
     if (isOverworld(FogSkyBlend.g)) {
         float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
