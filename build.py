@@ -41,7 +41,7 @@ LAZURITE_ARCHIVE = (
     "https://github.com/bambosan/lazurite-albite-compat/archive/refs/heads/main.zip"
 )
 
-ALBITE_VERSION = "v0.4.0"
+ALBITE_VERSION = "v0.4.1"
 ALBITE_EXE = "albite.exe" if os.name == "nt" else "albite"
 ALBITE_ASSETS = {
     ("linux", "x86_64"): "albite-linux-x86_64.tar.gz",
