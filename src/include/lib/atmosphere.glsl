@@ -85,7 +85,7 @@ AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t2)
         atm.lightDir,
         params.cRayleigh,
         params.cMie,
-        params.cOzone * M_OZONE,
+        params.cOzone,
         hbias
     );
     atm.R = (1.0 - exp(-atm.opticalDepth
@@ -138,7 +138,7 @@ vec3 calcAtmosphere(AtmosphereParams params, out vec4 transmittance) {
 
     if (t1.y > 0.0 && t1.y < params.rayLength) {
         float planetOd = t1.y - max(0.0, t1.x);
-        atm.scattering *= mix(vec3(0.3, 0.4, 0.5), vec3(1.0),
+        atm.scattering *= mix(vec3(0.6, 0.8, 1.0), vec3(1.0),
             max(exp(-planetOd * 1e-6), 1.0 - params.rain));
     }
 
