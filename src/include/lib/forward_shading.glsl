@@ -132,15 +132,16 @@ vec3 applyForwardShading(
                 * CameraLightIntensity.y;
 
             vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(absorbColor, 0.5)
-                * vec3(0.6, 0.8, 1.0) * 0.0075;
+                * vec3(0.6, 0.8, 1.0) * HEIGHT_FOG_INTENSITY;
             vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y) * 1.01;
             vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
             vec3 dFogExt = wDistNorm * wDistNorm * dFogModulator
-                * scatterColor * BORDER_FOG_INTENSITY;
+                * scatterColor * DISTANT_FOG_INTENSITY;
             vec3 dFogTsm = exp(-dFogExt);
 
-            vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * scatterColor * CameraLightIntensity.y * 0.11;
+            vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * scatterColor
+                * CameraLightIntensity.y * RAIN_FOG_INTENSITY;
 
             vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
 

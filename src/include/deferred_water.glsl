@@ -127,13 +127,14 @@ void main() {
                 * CameraLightIntensity.y;
 
             vec4 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator
-                * vec4(saturation(v_absorbColor, 0.5) * vec3(0.6, 0.8, 1.0), 1.0) * 0.0075;
+                * vec4(saturation(v_absorbColor, 0.5) * vec3(0.6, 0.8, 1.0), 1.0)
+                * HEIGHT_FOG_INTENSITY;
             vec4 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
                 * 1.01;
             vec4 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
             vec4 dFogExt = wDistNorm * wDistNorm * dFogModulator
-                * vec4(v_scatterColor, 1.0) * BORDER_FOG_INTENSITY;
+                * vec4(v_scatterColor, 1.0) * DISTANT_FOG_INTENSITY;
             vec4 dFogTsm = exp(-dFogExt);
 
             vec4 rFogExt = fwDistNorm6 * fwDistNorm6 * vec4(v_scatterColor, 1.0)

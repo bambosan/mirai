@@ -320,17 +320,18 @@ void main() {
                 * CameraLightIntensity.y;
 
             vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(v_absorbColor, 0.5)
-                * vec3(0.6, 0.8, 1.0) * 0.0075;
+                * vec3(0.6, 0.8, 1.0) * HEIGHT_FOG_INTENSITY;
             vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
                 * (0.01 + float(isTerrain));
             vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
             vec3 dFogExt = wDistNorm * wDistNorm * dFogModulator
-                * v_scatterColor * BORDER_FOG_INTENSITY;
+                * v_scatterColor * DISTANT_FOG_INTENSITY;
             vec3 dFogTsm = exp(-dFogExt);
 
             vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
-                * 0.1 * (0.01 + float(isTerrain)) * CameraLightIntensity.y;
+                * (RAIN_FOG_INTENSITY * 0.1 + float(isTerrain) * RAIN_FOG_INTENSITY)
+                * CameraLightIntensity.y;
 
             vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
 
