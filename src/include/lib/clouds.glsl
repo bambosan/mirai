@@ -13,7 +13,7 @@
 #define CIRRUS_HEIGHT (CUMULUS_HEIGHT + CUMULUS_THICKNESS + 200.0)
 
 //terrain
-#define CUMULUS_SHADOW_CONTRIBUTION 0.5
+#define CUMULUS_SHADOW_CONTRIBUTION 0.8
 
 #define CUMULUS_SHADOW_MAX_STEPS 24
 #define CUMULUS_SHADOW_MIN_STEPS 6
@@ -114,7 +114,7 @@ float calcDirectScattering(
     for (int j = 0; j < 4; j++) {
         float dphase = phase(costh, g, 1.0);
         lighting += b * dphase * exp(-shadow * stepSpace * a);
-        a *= shadowM * 0.35;
+        a *= shadowM * 0.3;
         g *= 0.15;
         b *= 0.5;
     }
@@ -313,7 +313,7 @@ float calcCirrusModel(vec2 pos, float time) {
         float dens = perlinNoise(pos) * amplitude;
         tdensity += dens;
         pos *= 2.5;
-        pos.x += pos.x * (dens * 0.5 + 0.5);
+        if (i > 1) pos.x += pos.x * (dens + 1.0);
         amplitude *= 0.5;
     }
 
