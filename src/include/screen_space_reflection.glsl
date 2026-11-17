@@ -197,6 +197,9 @@ void main() {
     int stepsCount = calcStepsCount(rayStartSS, rayStepSS);
     vec3 foundCoord = vec3(0.0);
 
+    float ign = fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715)) * 52.9829189);
+    rayStartSS.xy += rayStepSS.xy * ign;
+
     int foundIter = doLinearSearch(rayStartSS, rayStepSS, stepsCount, foundCoord);
     if (foundIter < 1) {
         fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
