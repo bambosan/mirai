@@ -111,17 +111,43 @@ void main() {
     fragColor.a = 0.0;
 
     if (isOverworld(FogSkyBlend.g)) {
-        float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
-
         if (CameraIsUnderwater.r > 0.0) {
-            outColor = WATER_SCATTERING_COEFFICIENTS * fogModulator * 0.01;
+            float wFogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
+            outColor = WATER_SCATTERING_COEFFICIENTS * wFogModulator * 0.01;
+
             fragColor.a = smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))
                 * exp(-length(worldPos) * 0.15));
         } else {
-            float fogFactor = clamp(wDistNorm, 0.0, 1.0);
-            outColor = mix(outColor, v_scatterColor * fogModulator,
-                fogFactor * fogFactor * BORDER_FOG_INTENSITY);
-            fragColor.a = fogFactor * fogFactor * BORDER_FOG_INTENSITY;
+            float fwDistNorm6 = worldDist / 96.0;
+            float dFogModulator = CameraLightIntensity.y
+                * smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
+
+            float hFogModulator = smoothstep(1.0, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+                * smoothstep(0.0, 1.0, SunDir.x)
+                * CameraLightIntensity.y;
+
+            vec4 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator
+                * vec4(saturation(v_absorbColor, 0.5) * vec3(0.6, 0.8, 1.0), 1.0) * 0.0075;
+            vec4 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
+                * 1.01;
+            vec4 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
+
+            vec4 dFogExt = wDistNorm * wDistNorm * dFogModulator
+                * vec4(v_scatterColor, 1.0) * BORDER_FOG_INTENSITY;
+            vec4 dFogTsm = exp(-dFogExt);
+
+            vec4 rFogExt = fwDistNorm6 * fwDistNorm6 * vec4(v_scatterColor, 1.0)
+                * CameraLightIntensity.y * 0.11;
+
+            vec4 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
+
+            outColor = outColor * dFogTsm.rgb + (1.0 - dFogTsm.rgb);
+            outColor = outColor * hFogTsm.rgb + (1.0 - hFogTsm.rgb);
+            outColor = outColor * fFogTsm.rgb + (1.0 - fFogTsm.rgb);
+
+            fragColor.a = fragColor.a * dFogTsm.a + (1.0 - dFogTsm.a);
+            fragColor.a = fragColor.a * hFogTsm.a + (1.0 - hFogTsm.a);
+            fragColor.a = fragColor.a * fFogTsm.a + (1.0 - fFogTsm.a);
         }
 
 #if CUMULUS_ENABLED

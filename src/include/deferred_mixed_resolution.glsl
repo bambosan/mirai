@@ -302,21 +302,46 @@ void main() {
         );
 #endif
 
-        float fogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
+        bool isWaterbody = texture(s_SpecularLighting, v_texcoord0).r < 1.0;
+        bool isUndewater = FogAndDistanceControl.r < EPSILON;
 
-        if (texture(s_SpecularLighting, v_texcoord0).r < 1.0
-            && FogAndDistanceControl.r < EPSILON) {
-            outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
-            outColor = mix(outColor, WATER_SCATTERING_COEFFICIENTS * fogModulator, 0.01);
+        if (isWaterbody && isUndewater) {
+            float wFogModulator = luminance(v_absorbColor) * CameraLightIntensity.y;
+            outColor = outColor * exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist)
+                + WATER_SCATTERING_COEFFICIENTS * wFogModulator * 0.01;
         } else {
+            float fwDistNorm6 = worldDist / 96.0;
+            float dFogModulator = CameraLightIntensity.y
+                * smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
+
+            float hFogModulator = smoothstep(1.0, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+                * smoothstep(0.0, 1.0, SunDir.x)
+                * CameraLightIntensity.y;
+
+            vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(v_absorbColor, 0.5)
+                * vec3(0.6, 0.8, 1.0) * 0.0075;
+            vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
+                * (0.01 + float(isTerrain));
+            vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
+
+            vec3 dFogExt = wDistNorm * wDistNorm * dFogModulator
+                * v_scatterColor * BORDER_FOG_INTENSITY;
+            vec3 dFogTsm = exp(-dFogExt);
+
+            vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
+                * 0.1 * (0.01 + float(isTerrain)) * CameraLightIntensity.y;
+
+            vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
+
             if (isTerrain) {
-                float fogFactor = clamp(wDistNorm, 0.0, 1.0);
-                outColor = mix(outColor, v_scatterColor * fogModulator,
-                    fogFactor * fogFactor * BORDER_FOG_INTENSITY);
+                outColor = outColor * dFogTsm + (1.0 - dFogTsm);
+                outColor = outColor * hFogTsm + (1.0 - hFogTsm);
             }
+            outColor = outColor * fFogTsm + (1.0 - fFogTsm);
         }
 
-        if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0) {
+        if (VolumeScatteringEnabledAndPointLightVolumetricsEnabled.x > 0.0
+            && ((isTerrain && !isWaterbody) ^^ isUndewater)) {
             vec3 uvw = ndcToVolume(VolumeNearFar.xy, projPos, u_invProj);
             vec4 volumetricFog = sampleVolume(s_ScatteringBuffer, uvw, VolumeDimensions.z);
             outColor = outColor * volumetricFog.a + volumetricFog.rgb;
