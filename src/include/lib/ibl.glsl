@@ -27,7 +27,7 @@ vec3 calcProbeLighting(
         textureLod(s_SpecularIBLRecords, vec4(rv, curr), iblMipLevel).rgb,
         iblParams.a
     );
-    return preFilteredCol * 0.25;
+    return preFilteredCol;
 }
 
 #if DO_INDIRECT_SPECULAR_SHADING_PASS
@@ -68,7 +68,7 @@ vec3 indirectSpecular(
 
     float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
     vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
-    return ilight * (f0 * envDFG.r + envDFG.g);
+    return ilight * 0.25 * (f0 * envDFG.r + envDFG.g);
 }
 
 #else
@@ -100,7 +100,7 @@ vec3 indirectSpecular(
 
     float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
     vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
-    return ilight * (f0 * envDFG.r + envDFG.g);
+    return ilight * 0.25 * (f0 * envDFG.r + envDFG.g);
 }
 
 #endif
