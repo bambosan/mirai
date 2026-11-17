@@ -330,7 +330,7 @@ void main() {
             vec3 dFogTsm = exp(-dFogExt);
 
             vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
-                * (RAIN_FOG_INTENSITY * 0.1 + float(isTerrain) * RAIN_FOG_INTENSITY)
+                * (RAIN_FOG_INTENSITY * 0.01 + float(isTerrain) * RAIN_FOG_INTENSITY)
                 * CameraLightIntensity.y;
 
             vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
