@@ -142,6 +142,7 @@ void main() {
         DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, roughness);
 
     albedo *= (1.0 - metalness);
+    specular = mix(specular, specular * luminance(albedo), roughness);
 
     subsurface *= linearstep(
         ShadowFilterOffsetAndRangeFarAndMapSizeAndNormalOffsetStrength.y - 16.0,

@@ -55,6 +55,7 @@ vec3 calcDirectionalLight(
 
     vec3 specular = calcSpecular(normal,
         DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, mers.b);
+    specular = mix(specular, specular * luminance(albedo.rgb), mers.b);
 
     mers.a *= linearstep(
         ShadowFilterOffsetAndRangeFarAndMapSizeAndNormalOffsetStrength.y - 16.0,

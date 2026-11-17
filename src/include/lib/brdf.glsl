@@ -35,7 +35,7 @@ vec3 calcSpecular(vec3 normal, vec3 lightDir, vec3 viewDir, vec3 f0, float rough
     float v = vSmithGGXCorrelated(NoV, NoL, a);
     vec3 f = fSchlick(LoH, f0);
 
-    return d * v * f * NoL * (1.0 - roughness);
+    return d * v * f * NoL;
 }
 
 #endif
