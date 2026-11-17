@@ -105,7 +105,7 @@ vec3 applyForwardShading(
 
     if (isOverworld(FogSkyBlend.g)) {
         float occluder = linearstep(0.7, 1.0, lightmap.g);
-        outColor += indirectSpecular(
+        vec3 ispecular = indirectSpecular(
             IBLParameters,
             f0,
             worldDir,
@@ -115,6 +115,8 @@ vec3 applyForwardShading(
             mers.b,
             occluder
         );
+        ispecular = mix(ispecular, ispecular * luminance(albedo.rgb), mers.b);
+        outColor += ispecular;
 
         if (CausticsParameters.a > 0.0) {
             float wFogModulator = luminance(absorbColor) * CameraLightIntensity.y;

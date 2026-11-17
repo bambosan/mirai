@@ -100,6 +100,7 @@ void main() {
                 occluder,
                 exposure
             );
+            outColor = mix(outColor, outColor * luminance(albedo), roughness);
         }
         outColor = preExposeLighting(outColor.rgb * EXPOSURE_MULTIPLIER, exposure);
     }
