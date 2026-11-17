@@ -108,7 +108,7 @@ void main() {
 
     vec3 outColor = v_absorbColor * specular * shadowMap * SunColor.r;
 
-    fragColor.a = 0.0;
+    fragColor.a = 0.5;
 
     if (isOverworld(FogSkyBlend.g)) {
         if (CameraIsUnderwater.r > 0.0) {
