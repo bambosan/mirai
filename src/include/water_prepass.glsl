@@ -96,7 +96,6 @@ SAMPLER2D(s_RippleTexture);
 #include "lib/common.glsl"
 #include "lib/materials.glsl"
 #include "lib/water_wave.glsl"
-#include "lib/puddle.glsl"
 #include "lib/taau_utils.glsl"
 #include "lib/gbuffer_utils.glsl"
 
