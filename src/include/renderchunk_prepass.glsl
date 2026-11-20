@@ -113,6 +113,7 @@ SAMPLER2D(s_SeasonsTexture);
 SAMPLER2D(s_RippleTexture);
 
 #include "lib/common.glsl"
+#include "lib/rain_ripples.glsl"
 #include "lib/materials.glsl"
 
 layout(location = 0) flat in int v_pbrTextureId;
@@ -145,13 +146,10 @@ void main() {
         float puddle = linearstep(0.9, 1.0, v_lightmapUV.y) * max(1.0 - SunColor.r, 0.0);
         mers.b *= max(1.0 - puddle, 0.0);
 
-        float rippleF = mod(floor(Time.r * 60.0), 64.0);
         vec2 position = v_worldPos.xz - WorldOrigin.xz;
-        vec2 r0 = rippleFetch(s_RippleTexture, position * 0.3, rippleF);
-        vec2 r1 = rippleFetch(s_RippleTexture,
-            mat2(0.8, 0.6, -0.6, 0.8) * position * 0.4 + vec2(0.37, 0.21),
-            mod(rippleF + 32.0, 64.0));
-        normal = mix(normal, normalize(vec3((r0 + r1) * 0.25, 1.0)).xzy, puddle);
+        vec2 rippleXY = rippleField(s_RippleTexture, position * RIPPLE_CELLS_PER_METER, Time.r);
+        normal = mix(normal, normalize(vec3(rippleXY
+            * exp(-length(v_worldPos) * 0.05) * RIPPLE_STRENGTH, 1.0)).xzy, puddle);
     }
 
     vec4 albedo = texture(s_MatTexture, v_texcoord0);

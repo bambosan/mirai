@@ -98,6 +98,7 @@ SAMPLER2D(s_RippleTexture);
 #include "lib/water_wave.glsl"
 #include "lib/taau_utils.glsl"
 #include "lib/gbuffer_utils.glsl"
+#include "lib/rain_ripples.glsl"
 
 layout(location = 0) in vec3 v_normal;
 layout(location = 1) in vec3 v_worldPos;
@@ -127,15 +128,9 @@ void main() {
     vec3 waterNormal = calcWaterNormal(waterPos, Time.x, d);
 
     if (fNormal.y > 0.0) {
-        float rippleF = mod(floor(Time.r * 60.0), 64.0);
-
-        vec2 r0 = rippleFetch(s_RippleTexture, position * 0.3, rippleF);
-        vec2 r1 = rippleFetch(s_RippleTexture,
-            mat2(0.8, 0.6, -0.6, 0.8) * position * 0.4 + vec2(0.37, 0.21),
-            mod(rippleF + 32.0, 64.0));
-        vec3 rippleNormal = normalize(vec3((r0 + r1)
-            * exp(-length(v_worldPos) * 0.05) * 0.25, 1.0));
-
+        vec2 rippleXY = rippleField(s_RippleTexture, position * RIPPLE_CELLS_PER_METER, Time.r);
+        vec3 rippleNormal = normalize(vec3(rippleXY
+            * exp(-length(v_worldPos) * 0.05) * RIPPLE_STRENGTH, 1.0));
         waterNormal = mix(blendRNM(waterNormal, rippleNormal), waterNormal, SunColor.r);
     }
 
