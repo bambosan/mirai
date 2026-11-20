@@ -138,7 +138,7 @@ void main() {
             vec3 dFogTsm = exp(-dFogExt);
 
             vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
-                * CameraLightIntensity.y * 0.11;
+                * CameraLightIntensity.y * RAIN_FOG_INTENSITY;
 
             vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
 
