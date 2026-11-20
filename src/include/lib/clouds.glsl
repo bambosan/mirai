@@ -13,7 +13,7 @@
 #define CIRRUS_HEIGHT (CUMULUS_HEIGHT + CUMULUS_THICKNESS + 200.0)
 
 //terrain
-#define CUMULUS_SHADOW_CONTRIBUTION 0.8
+#define CUMULUS_SHADOW_CONTRIBUTION 0.5
 
 #define CUMULUS_SHADOW_MAX_STEPS 24
 #define CUMULUS_SHADOW_MIN_STEPS 6
@@ -81,7 +81,7 @@ float calcCumulusModel(vec3 pos, float time, float rain) {
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
-    float wsculpting = linearstep(0.0, 1.0 - rain * 0.4, worley3d(pos * 0.15 + windDir.xxy * 0.01));
+    float wsculpting = worley3d(pos * 0.15 + windDir.xxy * 0.01);
     base = smoothstep(wsculpting * heightFraction, 1.0, base);
     return base;
 }
@@ -106,7 +106,7 @@ float calcDirectScattering(
 
     float lighting = 0.0;
     float modulator = max(lightDir.y, 0.0);
-    float shadowM = modulator * 0.3 + 0.7;
+    float shadowM = modulator * 0.5 + 0.5;
     float g = 0.7; //anisotropy factor
     float b = 1.0 + modulator; //brightness
     float a = 1.0; //shadow
@@ -114,7 +114,7 @@ float calcDirectScattering(
     for (int j = 0; j < 4; j++) {
         float dphase = phase(costh, g, 1.0);
         lighting += b * dphase * exp(-shadow * stepSpace * a);
-        a *= shadowM * 0.3;
+        a *= shadowM * 0.35;
         g *= 0.15;
         b *= 0.5;
     }
@@ -226,17 +226,15 @@ void applyCumulusClouds(
 
     AtmosphereParams moonAtmParams = sunAtmParams;
     moonAtmParams.lightDir = moonDir;
-    moonAtmParams.occlusion = 0.0;
 
     vec4 transmittance;
     vec3 atmContrib = calcAtmosphere(sunAtmParams, transmittance) * SUN_RADIANCE_MULTIPLIER;
     vec4 _unused;
-    atmContrib += luminance(calcAtmosphere(moonAtmParams, _unused))
-        * MOON_RADIANCE_MULTIPLIER;
+    atmContrib += calcAtmosphere(moonAtmParams, _unused) * 0.25 * MOON_RADIANCE_MULTIPLIER;
 
-    clouds.rg *= mix(vec2(0.2, 0.0), vec2(1.0), smoothstep(0.0, 0.1, sunDir.y));
+    clouds.rg *= mix(vec2(0.15, 0.0), vec2(1.0), smoothstep(0.0, 0.1, sunDir.y));
 
-    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain) + clouds.g * scatterColor * 0.5)
+    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain) + clouds.g * scatterColor)
         * saturation(transmittance.rgb, smoothstep(0.2, 0.0, moonDir.y));
     cloudsColor += atmContrib * (1.0 - clouds.a);
     outColor = clouds.a * outColor + cloudsColor;
@@ -306,14 +304,14 @@ float calcCirrusModel(vec2 pos, float time) {
     float tdensity = 0.0;
     float amplitude = 1.0;
 
-    pos.x *= 0.25;
+    pos.x *= 0.5;
 
     for (int i = 0; i < 4; i++) {
         pos.y += time * 0.01;
         float dens = perlinNoise(pos) * amplitude;
         tdensity += dens;
-        pos *= 2.5;
-        if (i > 1) pos.x += pos.x * (dens + 1.0);
+        pos *= 2.0;
+        if (i > 1) pos.x += pos.x * (dens * 1.5 + 0.5);
         amplitude *= 0.5;
     }
 
@@ -338,14 +336,14 @@ void applyCirrusClouds(
     float distFade = smoothstep(0.0, 0.2, worldDir.y);
     float altFade = smoothstep(0.0, 180.0, CIRRUS_HEIGHT - rayOrigin.y);
     float extinction = calcCirrusModel(samplePos.xz * 0.01, time) * distFade * altFade;
-
     float transmittance = exp(-extinction);
-    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0);
-    float mphase = phase(dot(worldDir, moonDir), 0.5, 1.0);
 
-    vec3 scatterCol = mix(absorbColor * rain * 0.25 * mphase,
-        (absorbColor * 0.5 + scatterColor * 4.0) * max(rain, 0.5) * sphase,
-        smoothstep(0.0, 0.1, sunDir.y));
+    float sunmod = smoothstep(0.0, 0.1, sunDir.y);
+    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0) * 0.25;
+    float mphase = phase(dot(worldDir, moonDir), 0.6, 0.0) * 0.1;
+
+    vec3 scatterCol = absorbColor * rain * (mphase + sphase * sunmod)
+        + scatterColor * sunmod * 0.5;
     outColor = outColor * transmittance + scatterCol * (1.0 - transmittance);
 }
 
