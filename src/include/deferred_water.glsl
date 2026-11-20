@@ -122,33 +122,29 @@ void main() {
             float dFogModulator = CameraLightIntensity.y
                 * smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
 
-            float hFogModulator = smoothstep(1.0, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+            float hFogModulator = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
                 * smoothstep(0.0, 1.0, SunDir.x)
                 * CameraLightIntensity.y;
 
-            vec4 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator
-                * vec4(saturation(v_absorbColor, 0.5) * vec3(0.6, 0.8, 1.0), 1.0)
+            vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator
+                * saturation(v_absorbColor, 0.5)
                 * HEIGHT_FOG_INTENSITY;
-            vec4 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
+            vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
                 * 1.01;
-            vec4 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
+            vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
-            vec4 dFogExt = wDistNorm * wDistNorm * dFogModulator
-                * vec4(v_scatterColor, 1.0) * DISTANT_FOG_INTENSITY;
-            vec4 dFogTsm = exp(-dFogExt);
+            vec3 dFogExt = wDistNorm * wDistNorm * dFogModulator
+                * v_scatterColor * DISTANT_FOG_INTENSITY;
+            vec3 dFogTsm = exp(-dFogExt);
 
-            vec4 rFogExt = fwDistNorm6 * fwDistNorm6 * vec4(v_scatterColor, 1.0)
+            vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
                 * CameraLightIntensity.y * 0.11;
 
-            vec4 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
+            vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
 
-            outColor = outColor * dFogTsm.rgb + (1.0 - dFogTsm.rgb);
-            outColor = outColor * hFogTsm.rgb + (1.0 - hFogTsm.rgb);
-            outColor = outColor * fFogTsm.rgb + (1.0 - fFogTsm.rgb);
-
-            fragColor.a = fragColor.a * dFogTsm.a + (1.0 - dFogTsm.a);
-            fragColor.a = fragColor.a * hFogTsm.a + (1.0 - hFogTsm.a);
-            fragColor.a = fragColor.a * fFogTsm.a + (1.0 - fFogTsm.a);
+            outColor = outColor * dFogTsm + (1.0 - dFogTsm);
+            outColor = outColor * hFogTsm + (1.0 - hFogTsm);
+            outColor = outColor * fFogTsm + (1.0 - fFogTsm);
         }
 
 #if CUMULUS_ENABLED
