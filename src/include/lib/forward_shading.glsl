@@ -70,7 +70,7 @@ vec3 calcDirectionalLight(
         * mers.a * albedo.rgb;
     tDiffuse *= (1.0 + shadowMap.g
         * phase(dot(DirectionalLightSourceWorldSpaceDirection.xyz, worldDir), 0.6, 0.0)
-        * 2.0 * mers.a * PI);
+        * mers.a * 5.0);
 
     return absorbColor * (
         diffuse * shadowMap.r + tDiffuse * shadowMap.g + specular * shadowMap.b
@@ -127,13 +127,13 @@ vec3 applyForwardShading(
             float dFogModulator = CameraLightIntensity.y
                 * smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
 
-            float hFogModulator = smoothstep(1.0, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+            float hFogModulator = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
                 * smoothstep(0.0, 1.0, SunDir.x)
                 * CameraLightIntensity.y;
 
             vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(absorbColor, 0.5)
-                * vec3(0.6, 0.8, 1.0) * HEIGHT_FOG_INTENSITY;
-            vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y) * 1.01;
+                * HEIGHT_FOG_INTENSITY;
+            vec3 hfFogExt = hFogExt * smoothstep(80.0, 0.0, -WorldOrigin.y) * 1.01;
             vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
             vec3 dFogExt = wDistNorm * wDistNorm * dFogModulator

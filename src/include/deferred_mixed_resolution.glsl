@@ -157,7 +157,7 @@ void main() {
         DirectionalLightSourceWorldSpaceDirection.xyz, 0.5) * subsurface * albedo;
     tDiffuse *= (1.0 + shadowMap.g
         * phase(dot(DirectionalLightSourceWorldSpaceDirection.xyz, worldDir), 0.6, 0.0)
-        * 2.0 * subsurface * PI);
+        * subsurface * 5.0);
 
     fragData0 = depth < 1.0
         ? vec4(v_absorbColor
@@ -315,13 +315,13 @@ void main() {
             float dFogModulator = CameraLightIntensity.y
                 * smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
 
-            float hFogModulator = smoothstep(1.0, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+            float hFogModulator = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
                 * smoothstep(0.0, 1.0, SunDir.x)
                 * CameraLightIntensity.y;
 
             vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(v_absorbColor, 0.5)
-                * vec3(0.6, 0.8, 1.0) * HEIGHT_FOG_INTENSITY;
-            vec3 hfFogExt = hFogExt * smoothstep(90.0, 0.0, -WorldOrigin.y)
+                * HEIGHT_FOG_INTENSITY;
+            vec3 hfFogExt = hFogExt * smoothstep(80.0, 0.0, -WorldOrigin.y)
                 * (0.01 + float(isTerrain));
             vec3 hFogTsm = exp(-hFogExt * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y));
 
