@@ -30,9 +30,15 @@ SAMPLER2D(s_RasterizedColor);
 
 // https://www.shadertoy.com/view/dtSGD1
 const mat3 SRGB_TO_ADJUSTED = mat3(
-    0.8817991968, 0.0588226238, 0.0593781794,
-    0.0317991968, 0.9088226238, 0.0593781794,
-    0.0317991968, 0.0588226238, 0.9093781794
+    0.8817991968, 0.0317991968, 0.0317991968,
+    0.0588226238, 0.9088226238, 0.0588226238,
+    0.0593781794, 0.0593781794, 0.9093781794
+);
+
+const mat3 ADJUSTED_TO_SRGB = mat3(
+    1.1390597685, -0.0374108197, -0.0374108197,
+    -0.0692030869, 1.1072675014, -0.0692030869,
+    -0.0698566816, -0.0698566816, 1.1066139066
 );
 
 vec3 openDomainToNormalizedLog2(vec3 openDomain) {
@@ -80,10 +86,12 @@ void main() {
     vec4 overlayCol = texture(s_RasterizedColor, v_texcoord0);
     inputColor = mix(inputColor, overlayCol.rgb, overlayCol.a);
 
-    vec3 outColor = inputColor * SRGB_TO_ADJUSTED;
+    vec3 outColor = SRGB_TO_ADJUSTED * inputColor;
     outColor = max(outColor, vec3(1e-6));
     outColor = openDomainToNormalizedLog2(outColor);
     outColor = agxCurve3(outColor);
+    outColor = ADJUSTED_TO_SRGB * outColor;
+
     outColor = clamp(outColor, 0.0, 1.0);
 
     fragColor = vec4(outColor, 1.0);
