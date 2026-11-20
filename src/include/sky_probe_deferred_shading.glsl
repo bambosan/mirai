@@ -115,6 +115,19 @@ void main() {
     );
 #endif
 
+    float fwDistNorm6 = length(worldPos) / 96.0;
+    float hFogModulator = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+        * smoothstep(0.0, 1.0, SunDir.x);
+
+    vec3 hFogExt = fwDistNorm6 * fwDistNorm6 * hFogModulator * saturation(v_absorbColor, 0.5)
+        * HEIGHT_FOG_INTENSITY;
+    vec3 hfFogExt = hFogExt * smoothstep(80.0, 0.0, -WorldOrigin.y) * 1.01;
+    vec3 rFogExt = fwDistNorm6 * fwDistNorm6 * v_scatterColor
+        * RAIN_FOG_INTENSITY;
+
+    vec3 fFogTsm = exp(-mix(rFogExt, hfFogExt, SunColor.r));
+    outColor = outColor * fFogTsm + (1.0 - fFogTsm) * 0.05;
+
     if (int(CurrentFace.x) == 3) {
         outColor *= SkyProbeUVFadeParameters.z;
     } else if(int(CurrentFace.x) != 2) {
