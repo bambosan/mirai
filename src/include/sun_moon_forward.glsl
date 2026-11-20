@@ -13,7 +13,6 @@ void main() {
 
 in vec4 a_color0;
 in vec3 a_position;
-in vec2 a_texcoord0;
 #if INSTANCING__ON
 in vec4 i_data1;
 in vec4 i_data2;
@@ -22,18 +21,16 @@ in vec4 i_data3;
 
 layout(location = 0) out vec4 v_clipPos;
 layout(location = 1) out vec3 v_worldPos;
-layout(location = 2) out vec2 v_texcoord0;
 
 void main() {
 #if INSTANCING__ON
     vec3 worldPos = (instanceMatrix(i_data1, i_data2, i_data3) * vec4(a_position, 1.0)).xyz;
 #else
-    vec3 worldPos = (u_model[0] * vec4(a_position * 2.0, 1.0)).xyz;
+    vec3 worldPos = (u_model[0] * vec4(a_position, 1.0)).xyz;
 #endif
     vec4 clipPos = u_viewProj * vec4(worldPos, 1.0);
     v_clipPos = clipPos;
-    v_texcoord0 = a_texcoord0;
-    v_worldPos = worldPos * 0.5;
+    v_worldPos = worldPos;
     gl_Position = clipPos;
 }
 #endif
@@ -67,7 +64,6 @@ SAMPLER2DARRAY(s_ScatteringBuffer);
 
 layout(location = 0) in vec4 v_clipPos;
 layout(location = 1) in vec3 v_worldPos;
-layout(location = 2) in vec2 v_texcoord0;
 
 out vec4 fragColor;
 
@@ -90,16 +86,13 @@ void main() {
     vec4 transmittance;
     vec3 unused = calcAtmosphere(atmParams, transmittance);
 
-    float disc  = sqrt(smoothstep(cos(0.00436 * 10.0), 1.0, dot(worldDir, SunDir.xyz)));
-    vec3 outColor = disc * transmittance.rgb * transmittance.a
-        * SUN_RADIANCE_MULTIPLIER * 100.0;
+    float sunDisc = step(cos(0.00436 * 5.0), dot(worldDir, SunDir.xyz));
+    float moonDisc = step(cos(0.00436 * 10.0), dot(worldDir, MoonDir.xyz));
 
-    if (dot(worldDir, MoonDir.xyz) > 0.0) {
-        vec3 tex = toLinear(texture(s_SunMoonTexture, v_texcoord0).rgb);
-        float texlum = luminance(tex);
-        outColor = step(0.05, texlum) * texlum * saturation(transmittance.rgb, 0.5) * transmittance.a
-            * MOON_RADIANCE_MULTIPLIER * 5.0;
-    }
+    vec3 outColor = sunDisc * transmittance.rgb * transmittance.rgb * transmittance.a
+        * SUN_RADIANCE_MULTIPLIER * 100.0;
+    outColor += moonDisc * saturation(transmittance.rgb, 0.5) * transmittance.a
+        * MOON_RADIANCE_MULTIPLIER;
 
 #if CUMULUS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
