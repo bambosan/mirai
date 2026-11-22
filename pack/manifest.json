@@ -1,18 +1,35 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Mirai 4.0.0",
+    "name": "Mirai 4.1.0",
     "description": "Make Minecraft looks realistic\nBy: bambosan",
-    "uuid": "3f528d91-028f-4b45-87cd-0cba1e5f9d10",
-    "version": [4, 0, 0],
+    "uuid": "9356440a-acc1-49d9-99f9-516ff2df4453",
+    "version": [4, 1, 0],
     "min_engine_version": [1, 26, 60]
   },
   "modules": [
     {
       "description": "Make Minecraft looks realistic\nBy: bambosan",
       "type": "resources",
-      "uuid": "03d883f2-e326-43eb-b4b8-3e5d21096e4d",
-      "version": [4, 0, 0]
+      "uuid": "68663d8f-0441-4d2a-9008-655630cdc353",
+      "version": [4, 1, 0]
+    }
+  ],
+  "subpacks": [
+    {
+      "folder_name": "noclouds",
+      "name": "No Clouds",
+      "memory_tier": 2
+    },
+    {
+      "folder_name": "vclouds",
+      "name": "+ Volumetric Clouds",
+      "memory_tier": 2
+    },
+    {
+      "folder_name": "default",
+      "name": "Default Looks",
+      "memory_tier": 2
     }
   ],
   "capabilities": [
