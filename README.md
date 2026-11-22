@@ -1,4 +1,4 @@
-<img src="ss.png" alt="Mirai" width="100%">
+<img src="screenshot.png" alt="Mirai" width="100%">
 
 # Mirai
 
