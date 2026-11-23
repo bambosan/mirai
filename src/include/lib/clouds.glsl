@@ -77,7 +77,7 @@ float calcCumulusModel(vec3 pos, float time, float rain) {
     float base = linearstep(max(0.5, rain * 0.8), 1.0, worley2d(basePos)) * 0.5;
 
     float heightFraction = clamp((pos.y - CUMULUS_HEIGHT) / CUMULUS_THICKNESS, 0.0, 1.0);
-    base = linearstep(exp(-(1.0 - heightFraction) * 10.0), 1.0, base); //top sculpting
+    base = linearstep(exp(-(1.0 - heightFraction) * 20.0), 1.0, base); //top sculpting
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
@@ -96,7 +96,7 @@ float calcDirectScattering(
     float rain
 ) {
     float shadow = 0.0;
-    float stepSpace = CUMULUS_THICKNESS / max(lightDir.y, 0.01) * 0.25;
+    float stepSpace = CUMULUS_THICKNESS / max(lightDir.y, EPSILON) * 0.25;
     stepSpace = min(stepSpace, CUMULUS_THICKNESS);
 
     for (int i = 0; i < 4; i++) {
@@ -114,14 +114,13 @@ float calcDirectScattering(
     for (int j = 0; j < 4; j++) {
         float dphase = phase(costh, g, 1.0);
         lighting += b * dphase * exp(-shadow * stepSpace * a);
-        a *= shadowM * 0.35;
+        a *= shadowM * 0.4;
         g *= 0.15;
         b *= 0.5;
     }
 
     float powder = 1.0 - exp(-extinction * CUMULUS_VOLUME_STEP_SPACE * 10.0);
-    powder = max(powder, 1.0 - transmittance);
-    lighting *= mix(powder + pow(powder, 5.0), 1.0, costh * 0.5 + 0.5);
+    lighting *= mix(max(powder + pow(powder, 5.0), 1.0 - transmittance), 1.0, costh * 0.5 + 0.5);
 
     return lighting;
 }
