@@ -4,8 +4,6 @@
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if SHADER_STAGE__VERTEX
-uniform vec4 ViewportScale;
-
 in vec3 a_position;
 in vec2 a_texcoord0;
 
@@ -18,7 +16,7 @@ layout(location = 1) out vec2 v_projPos;
 
 void main() {
 #if !SSR_RAY_MARCH_HZB_PASS
-    v_texcoord0 = a_texcoord0 * ViewportScale.xy;
+    v_texcoord0 = a_texcoord0;
 #endif
 #if SSR_RAY_MARCH_PASS
     v_projPos = a_position.xy * 2.0 - 1.0;
@@ -73,27 +71,24 @@ float projToLinearDepth(float z) {
 #endif
 }
 
-float calcFadingValue(float roughness, float rayPercentage) {
-    float fadeValueRay = smoothstep(1.0, 0.9, rayPercentage);
+float calcRoughnessFading(float roughness) {
     float roughnessFadeDist = SSRRoughnessCutoffParams.x - SSRRoughnessCutoffParams.y;
     float roughnessLerpAlpha = (max(roughness, SSRRoughnessCutoffParams.y)
         - SSRRoughnessCutoffParams.y) / roughnessFadeDist;
     float fadeValueRoughness = mix(1.0, 0.0, roughnessLerpAlpha);
-    float fadeValue = min(fadeValueRay, fadeValueRoughness);
-    return fadeValue;
+    return fadeValueRoughness;
 }
 
-int calcStepsCount(vec3 rayStartSS, vec3 rayStepSS) {
-    vec3 scTopLeftNearCorner = rayStartSS / rayStepSS;
-    vec3 scBottomRightFarCorner = (vec3(1.0) - rayStartSS) / rayStepSS;
-    vec3 lowestSC = vec3(
-        rayStepSS.x < 0.0 ? abs(scTopLeftNearCorner.x) : scBottomRightFarCorner.x,
-        rayStepSS.y < 0.0 ? abs(scTopLeftNearCorner.y) : scBottomRightFarCorner.y,
-        rayStepSS.z < 0.0 ? abs(scTopLeftNearCorner.z) : scBottomRightFarCorner.z
-    );
-    float minStepsCount = min(min(lowestSC.x, lowestSC.y), lowestSC.z);
-    int stepsCount = int(min(minStepsCount, SSRRayMarchingParams.x));
-    return stepsCount;
+float calcPixelsToExit(vec3 rayStartSS, vec3 dir) {
+#if TRANSPILE_TARGET__GLSL
+    const float zMin = -1.0;
+#else
+    const float zMin = 0.0;
+#endif
+    float tx = dir.x < 0.0 ? -rayStartSS.x / dir.x : (1.0 - rayStartSS.x) / dir.x;
+    float ty = dir.y < 0.0 ? -rayStartSS.y / dir.y : (1.0 - rayStartSS.y) / dir.y;
+    float tz = dir.z < 0.0 ? (zMin - rayStartSS.z) / dir.z : (1.0 - rayStartSS.z) / dir.z;
+    return max(min(min(tx, ty), tz), 0.0);
 }
 
 int doLinearSearch(
@@ -112,7 +107,7 @@ int doLinearSearch(
         float sceneLinearDepth = projToLinearDepth(sceneDepth);
 
         if (sceneLinearDepth <= rayLinearDepth && prevRayDepth
-            <= (sceneLinearDepth + sceneLinearDepth * SSRFadingParamsAndThickness.a)) {
+            <= (sceneLinearDepth + sceneLinearDepth * 0.05)) {
             foundIter = i;
             foundCoord = posSS;
             break;
@@ -124,7 +119,7 @@ int doLinearSearch(
     return foundIter;
 }
 
-float doBinarySearch(
+void doBinarySearch(
     int foundIter,
     vec3 rayStartSS,
     vec3 rayStepSS,
@@ -132,7 +127,6 @@ float doBinarySearch(
 ) {
     float iterBeforeHit = float(foundIter - 1);
     float iterAfterHit = float(foundIter);
-    float refinedIter = iterAfterHit;
     int bStepCount = int(SSRRayMarchingParams.w);
 
     for (int i = 0; i < bStepCount; i++) {
@@ -144,14 +138,11 @@ float doBinarySearch(
 
         if (rayLinearDepth > sceneLinearDepth) {
             iterAfterHit = iterMid;
-            refinedIter = iterMid;
             foundCoord = posMid;
         } else {
             iterBeforeHit = iterMid;
         }
     }
-
-    return refinedIter;
 }
 
 #if !SSR_RAY_MARCH_HZB_PASS
@@ -165,8 +156,6 @@ out vec4 fragData0;
 
 void main() {
 #if SSR_RAY_MARCH_PASS
-    vec2 stexcoord = (floor(v_texcoord0.xy * ScreenSize.xy) + 0.5) * ScreenSize.zw;
-
     uvec4 data16 = texelFetch(s_GbufferRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
     float roughness = float(data16.r >> 8) / 255.0;
     if (roughness > SSRRoughnessCutoffParams.x) {
@@ -174,45 +163,52 @@ void main() {
         return;
     }
 
-    float depth = sampleDepth(s_GbufferDepth, stexcoord);
-
+    float depth = sampleDepth(s_GbufferDepth, v_texcoord0);
     vec3 viewPos = projToView(vec3(v_projPos, depth), u_invProj);
-    vec3 normal = octToNdirSnorm(texture(s_GbufferNormal, stexcoord).rg);
+    vec3 normal = octToNdirSnorm(texture(s_GbufferNormal, v_texcoord0).rg);
     vec3 viewNormal = (u_view * vec4(normal, 0.0)).xyz;
 
     vec3 reflectedView = reflect(normalize(viewPos), viewNormal);
-    vec3 rayStartView = viewPos + viewNormal * SSRRayMarchingParams.z;
-    vec3 rayEndView = rayStartView + reflectedView;
+    vec3 rayEndView = viewPos + reflectedView;
 
-    if (!isDepthInCameraBounds(rayStartView.z)
-        || !isDepthInCameraBounds(rayEndView.z)) {
+    if (!isDepthInCameraBounds(viewPos.z) || !isDepthInCameraBounds(rayEndView.z)) {
         fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
         return;
     }
 
-    vec3 rayStartSS = viewToProj(rayStartView, u_proj);
+    vec3 rayStartSS = viewToProj(viewPos, u_proj);
     vec3 rayEndSS = viewToProj(rayEndView, u_proj);
     vec3 raySpanSS = rayEndSS - rayStartSS;
-    vec3 rayStepSS = normalize(raySpanSS) / SSRRayMarchingParams.x;
-    int stepsCount = calcStepsCount(rayStartSS, rayStepSS);
-    vec3 foundCoord = vec3(0.0);
+    vec2 raySpanPx = raySpanSS.xy * ScreenSize.xy;
+    float majorPx = max(abs(raySpanPx.x), abs(raySpanPx.y));
+    if (majorPx < EPSILON) {
+        fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
+        return;
+    }
+
+    vec3 dirPerPx = raySpanSS / majorPx;
+    float pxToExit = calcPixelsToExit(rayStartSS, dirPerPx);
+    float stridePx = max(1.0, pxToExit / 20.0);
+    int stepsCount = int(pxToExit / stridePx);
+
+    vec3 rayStepSS = dirPerPx * stridePx;
 
     float ign = fract(dot(floor(gl_FragCoord.xy), vec2(0.06711056, 0.00583715)) * 52.9829189);
-    rayStartSS.xy += rayStepSS.xy * ign;
+    rayStartSS += rayStepSS * ign;
 
+    vec3 foundCoord = vec3(0.0);
     int foundIter = doLinearSearch(rayStartSS, rayStepSS, stepsCount, foundCoord);
     if (foundIter < 1) {
         fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
         return;
     }
 
-    float refinedIter = doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
-    fragData0.rgb = foundCoord;
+    doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
 
-    float rayPercentage = refinedIter / float(stepsCount);
-    fragData0.a = (foundCoord.x > 0.0 && foundCoord.x < 1.0
-        && foundCoord.y > 0.0 && foundCoord.y < 1.0)
-    ? calcFadingValue(roughness, rayPercentage) : 0.0;
+    fragData0.rgb = foundCoord;
+    fragData0.a = calcRoughnessFading(roughness)
+      * float(foundCoord.x > 0.0 && foundCoord.x < 1.0
+        && foundCoord.y > 0.0 && foundCoord.y < 1.0 && foundCoord.z < 1.0);
 #endif
 
 // currently unused
