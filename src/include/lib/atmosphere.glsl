@@ -134,6 +134,7 @@ vec3 calcAtmosphere(AtmosphereParams params, out vec4 transmittance) {
         + params.cOzone
         * atm.densityR));
     transmittance.a = step(t1.x, 0.0);
+    atm.scattering = saturation(atm.scattering, 1.2);
 
     return atm.scattering * M_EXPOSURE;
 }
@@ -148,6 +149,8 @@ vec3 calcAtmosphere(AtmosphereParams params) {
     if (t2.y < 0.0) return vec3(0.0);
 
     AtmosphericScattering atm = calcAtmosphereScattering(params, t2);
+    atm.scattering = saturation(atm.scattering, 1.2);
+
     return atm.scattering * M_EXPOSURE;
 }
 
