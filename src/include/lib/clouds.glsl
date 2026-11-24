@@ -233,8 +233,8 @@ void applyCumulusClouds(
 
     clouds.rg *= mix(vec2(0.15, 0.0), vec2(1.0), smoothstep(0.0, 0.1, sunDir.y));
 
-    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain) + clouds.g * scatterColor)
-        * saturation(transmittance.rgb, smoothstep(0.2, 0.0, moonDir.y));
+    vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain)
+        + clouds.g * saturation(scatterColor, 0.5)) * transmittance.rgb;
     cloudsColor += atmContrib * (1.0 - clouds.a);
     outColor = clouds.a * outColor + cloudsColor;
 }
