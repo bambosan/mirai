@@ -42,7 +42,7 @@ void main() {
     vec3 cRayleigh, cMie, cOzone;
     atmConstant(SunColor.r, cRayleigh, cMie, cOzone);
 
-    vec3 absorbColor = calcLightTransmittance(SunDir.xyz, cRayleigh, cMie, cOzone, 0.75)
+    vec3 absorbColor = calcLightTransmittance(SunDir.xyz, cRayleigh, cMie, cOzone, 1.0)
         * SUN_RADIANCE_MULTIPLIER;
     // absorbColor += calcLightTransmittance(MoonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
     //     * MOON_RADIANCE_MULTIPLIER;
