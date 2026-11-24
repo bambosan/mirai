@@ -6,7 +6,7 @@
 // https://www.guerrilla-games.com/read/nubis-realtime-volumetric-cloudscapes-in-a-nutshell
 // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
 
-#define CUMULUS_HEIGHT 180.0
+#define CUMULUS_HEIGHT 200.0
 #define CUMULUS_THICKNESS 200.0
 #define CUMULUS_VOLUME_MAX_STEP_COUNTS 200
 #define CUMULUS_VOLUME_STEP_SPACE 10.0
@@ -310,7 +310,6 @@ float calcCirrusModel(vec2 pos, float time) {
         float dens = perlinNoise(pos) * amplitude;
         tdensity += dens;
         pos *= 2.0;
-        if (i > 1) pos.x += pos.x * (dens * 1.5 + 0.5);
         amplitude *= 0.5;
     }
 
