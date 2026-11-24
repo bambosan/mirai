@@ -303,17 +303,15 @@ float calcCirrusModel(vec2 pos, float time) {
     float tdensity = 0.0;
     float amplitude = 1.0;
 
-    pos.x *= 0.5;
-
     for (int i = 0; i < 4; i++) {
-        pos.y += time * 0.01;
-        float dens = perlinNoise(pos) * amplitude;
+        float dens = perlinNoise(pos * vec2(1.0, 0.25) + vec2(0.0, time * 0.01)) * amplitude;
+        if (i > 1) pos.y += pos.y * (dens + 1.0);
         tdensity += dens;
         pos *= 2.0;
         amplitude *= 0.5;
     }
 
-    return smoothstep(0.45, 1.0, tdensity * 0.533333);
+    return smoothstep(0.5, 1.0, tdensity * 0.533333);
 }
 
 void applyCirrusClouds(
@@ -337,7 +335,7 @@ void applyCirrusClouds(
     float transmittance = exp(-extinction);
 
     float sunmod = smoothstep(0.0, 0.1, sunDir.y);
-    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0) * 0.25;
+    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0) * 0.5;
     float mphase = phase(dot(worldDir, moonDir), 0.6, 0.0) * 0.1;
 
     vec3 scatterCol = absorbColor * rain * (mphase + sphase * sunmod)
