@@ -81,7 +81,7 @@ float calcCumulusModel(vec3 pos, float time, float rain) {
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
-    float wsculpting = worley3d(pos * 0.15 + windDir.xxy * 0.01);
+    float wsculpting = worley3d(pos * 0.125 + windDir.xxy * 0.005);
     base = smoothstep(wsculpting * heightFraction, 1.0, base);
     return base;
 }
