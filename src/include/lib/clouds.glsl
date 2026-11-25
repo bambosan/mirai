@@ -6,7 +6,7 @@
 // https://www.guerrilla-games.com/read/nubis-realtime-volumetric-cloudscapes-in-a-nutshell
 // https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016-pbs-frostbite-sky-clouds-new.pdf
 
-#define CUMULUS_HEIGHT 200.0
+#define CUMULUS_HEIGHT 180.0
 #define CUMULUS_THICKNESS 200.0
 #define CUMULUS_VOLUME_MAX_STEP_COUNTS 200
 #define CUMULUS_VOLUME_STEP_SPACE 10.0
@@ -77,11 +77,11 @@ float calcCumulusModel(vec3 pos, float time, float rain) {
     float base = linearstep(max(0.5, rain * 0.8), 1.0, worley2d(basePos)) * 0.5;
 
     float heightFraction = clamp((pos.y - CUMULUS_HEIGHT) / CUMULUS_THICKNESS, 0.0, 1.0);
-    base = linearstep(exp(-(1.0 - heightFraction) * 20.0), 1.0, base); //top sculpting
+    base = linearstep(exp(-(1.0 - heightFraction) * 10.0), 1.0, base); //top sculpting
     base = linearstep(exp(-heightFraction * 25.0), 1.0, base); //bottom sculpting
 
     //worley sculpting for billow shape
-    float wsculpting = worley3d(pos * 0.125 + windDir.xxy * 0.005);
+    float wsculpting = worley3d(pos * 0.15 + windDir.xxy * 0.005);
     base = smoothstep(wsculpting * heightFraction, 1.0, base);
     return base;
 }
@@ -234,7 +234,7 @@ void applyCumulusClouds(
     clouds.rg *= mix(vec2(0.15, 0.0), vec2(1.0), smoothstep(0.0, 0.1, sunDir.y));
 
     vec3 cloudsColor = (clouds.r * absorbColor * max(0.5, rain)
-        + clouds.g * saturation(scatterColor, 0.5)) * transmittance.rgb;
+        + clouds.g * scatterColor) * transmittance.rgb;
     cloudsColor += atmContrib * (1.0 - clouds.a);
     outColor = clouds.a * outColor + cloudsColor;
 }
@@ -311,7 +311,7 @@ float calcCirrusModel(vec2 pos, float time) {
         amplitude *= 0.5;
     }
 
-    return smoothstep(0.5, 1.0, tdensity * 0.533333);
+    return smoothstep(0.45, 1.0, tdensity * 0.533333);
 }
 
 void applyCirrusClouds(
@@ -335,7 +335,7 @@ void applyCirrusClouds(
     float transmittance = exp(-extinction);
 
     float sunmod = smoothstep(0.0, 0.1, sunDir.y);
-    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0) * 0.5;
+    float sphase = phase(dot(worldDir, sunDir), 0.1, 1.0) * 0.25;
     float mphase = phase(dot(worldDir, moonDir), 0.6, 0.0) * 0.1;
 
     vec3 scatterCol = absorbColor * rain * (mphase + sphase * sunmod)
