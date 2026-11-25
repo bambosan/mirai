@@ -17,6 +17,7 @@ uniform vec4 SunColor;
 uniform vec4 SunDir;
 uniform vec4 VolumeDimensions;
 uniform vec4 VolumeNearFar;
+uniform vec4 WorldOrigin;
 uniform mat4 u_invViewProj;
 uniform mat4 u_proj;
 
@@ -44,12 +45,13 @@ void main() {
 
     vec3 absorbColor = calcLightTransmittance(SunDir.xyz, cRayleigh, cMie, cOzone, 1.0)
         * SUN_RADIANCE_MULTIPLIER;
-    // absorbColor += calcLightTransmittance(MoonDir.xyz, cRayleigh, cMie, cOzone, 0.0)
-    //     * MOON_RADIANCE_MULTIPLIER;
     absorbColor *= smoothstep(0.0, 0.1, DirectionalLightSourceWorldSpaceDirection.y);
 
-    float mie = phase(cost, 0.6, 0.0) * occlusion * SunColor.r
-        * smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y);
+    float airScatterMod = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
+        * smoothstep(0.0, 1.0, SunDir.x)
+        * smoothstep(80.0, 0.0, -WorldOrigin.y);
+
+    float mie = phase(cost, 0.6, 0.0) * occlusion * SunColor.r * airScatterMod;
     vec3 airScattering = absorbColor * mie * 0.0005;
 
 #if TRANSPILE_TARGET__GLSL
