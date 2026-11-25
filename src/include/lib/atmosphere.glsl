@@ -11,14 +11,14 @@
 #define ATMOSPHERE_DENSITY 1.0
 #define PLANET_RADIUS 6371000.0
 #define PLANET_CENTER vec3(0, -PLANET_RADIUS, 0)
-#define RAYLEIGH_MAX_LUM 2.0
+#define RAYLEIGH_MAX_LUM 2.5
 #define MIE_MAX_LUM 0.5
-#define M_EXPOSURE 0.25
+#define M_EXPOSURE 0.23
 #define M_FAKE_MS 0.3
 #define M_AERIAL 2.5
 #define M_LIGHT_TRANSMITTANCE 1e6
 #define M_DENSITY_HEIGHT_MOD 1e-12
-#define M_DENSITY_CAM_MOD 10.0
+#define M_MIE 5.0
 
 #define CAM_ALTITUDE 100.0
 
@@ -53,7 +53,7 @@ vec3 calcLightTransmittance(
     float multiplier
 ) {
     float lightExtinctionAmount = exp(-(clamp(lightDir.y + 0.05, 0.0, 1.0) * 40.0))
-        + exp(-(clamp(lightDir.y + 0.3, 0.0, 1.0) * 5.0)) * 0.4
+        + exp(-(clamp(lightDir.y + 0.25, 0.0, 1.0) * 5.0)) * 0.4
         + pow(clamp(1.0 - lightDir.y, 0.0, 1.0), 2.0) * 0.02;
     return exp(-(cRayleigh + cMie + cOzone)
         * lightExtinctionAmount
@@ -72,16 +72,14 @@ AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t2)
         * params.aerial * M_AERIAL * AERIAL_SCALE, t2.y);
 
     float hbias = 1.0 - 1.0 / (2.0 + t2.y * t2.y * M_DENSITY_HEIGHT_MOD);
-    hbias = pow(hbias, 1.0 + CAM_ALTITUDE / ATMOSPHERE_HEIGHT * M_DENSITY_CAM_MOD);
     atm.densityR = hbias * hbias * hbias * ATMOSPHERE_DENSITY;
     atm.densityM = hbias * hbias * hbias * hbias * hbias * ATMOSPHERE_DENSITY;
 
     float ly = clamp(params.lightDir.y
         + clamp(-params.lightDir.y + 0.02, 0.0, 1.0)
         * clamp(params.lightDir.y + 0.7, 0.0, 1.0), -1.0, 1.0);
-    atm.lightDir = vec3(params.lightDir.x, ly, params.lightDir.z);
     atm.lightColor = calcLightTransmittance(
-        atm.lightDir,
+        vec3(params.lightDir.x, ly, params.lightDir.z),
         params.cRayleigh,
         params.cMie,
         params.cOzone,
@@ -101,8 +99,8 @@ AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t2)
     float desaturate = smoothstep(0.0, 0.15, params.lightDir.y) * 0.8 + 0.2;
     vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS)
         * saturation(atm.lightColor, desaturate);
-    vec3 mie = (phaseM * params.occlusion + phaseR * M_FAKE_MS) * atm.lightColor;
-    atm.scattering = mie * atm.M * 2.5 + rayleigh * atm.R;
+    vec3 mie = (phaseM * params.occlusion * M_MIE + phaseR * M_FAKE_MS) * atm.lightColor;
+    atm.scattering = mie * atm.M + rayleigh * atm.R;
 
     return atm;
 }
@@ -134,7 +132,6 @@ vec3 calcAtmosphere(AtmosphereParams params, out vec4 transmittance) {
         + params.cOzone
         * atm.densityR));
     transmittance.a = step(t1.x, 0.0);
-    atm.scattering = saturation(atm.scattering, 1.4);
 
     return atm.scattering * M_EXPOSURE;
 }
@@ -149,12 +146,10 @@ vec3 calcAtmosphere(AtmosphereParams params) {
     if (t2.y < 0.0) return vec3(0.0);
 
     AtmosphericScattering atm = calcAtmosphereScattering(params, t2);
-    atm.scattering = saturation(atm.scattering, 1.4);
 
     return atm.scattering * M_EXPOSURE;
 }
 
-// what is this?!
 void atmConstant(float rain, out vec3 cRayleigh, out vec3 cMie, out vec3 cOzone) {
     cRayleigh = mix(vec3(13.558e-6), vec3(5.802e-6, 13.558e-6, 33.100e-6), rain);
     cMie = mix(vec3(3.996e-6) * 10.0, vec3(3.996e-6), rain);
