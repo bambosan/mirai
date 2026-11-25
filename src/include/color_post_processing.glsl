@@ -28,12 +28,12 @@ SAMPLER2D(s_RasterizedColor);
 
 #include "lib/common.glsl"
 
-const float PURKINJE_LUM_MIN = -3.0;
+const float PURKINJE_LUM_MIN = -4.0;
 const float PURKINJE_LUM_MAX = 4.0;
 const float PURKINJE_FADE_END = -0.5;
-const float PURKINJE_STRENGTH = 0.55;
+const float PURKINJE_STRENGTH = 1.0;
 const float PURKINJE_CURVE = 2.0;
-const float PURKINJE_PIXEL_DARK_EV = -3.0;
+const float PURKINJE_PIXEL_DARK_EV = -4.0;
 const float PURKINJE_PIXEL_BRIGHT_EV = -0.5;
 
 const vec3 SCOTOPIC_WEIGHTS = vec3(0.0, 0.62, 0.38);
