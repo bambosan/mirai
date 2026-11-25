@@ -28,6 +28,41 @@ SAMPLER2D(s_RasterizedColor);
 
 #include "lib/common.glsl"
 
+const float PURKINJE_LUM_MIN = -3.0;
+const float PURKINJE_LUM_MAX = 4.0;
+const float PURKINJE_FADE_END = -0.5;
+const float PURKINJE_STRENGTH = 0.55;
+const float PURKINJE_CURVE = 2.0;
+const float PURKINJE_PIXEL_DARK_EV = -3.0;
+const float PURKINJE_PIXEL_BRIGHT_EV = -0.5;
+
+const vec3 SCOTOPIC_WEIGHTS = vec3(0.0, 0.62, 0.38);
+const vec3 SCOTOPIC_TINT = vec3(0.55, 0.78, 1.0);
+
+float purkinjeAdaptation(float adaptLuminance) {
+    float ev = log2(max(adaptLuminance, 1e-5));
+    float fadeEnd = min(PURKINJE_FADE_END, PURKINJE_LUM_MAX);
+    float t = smoothstep(PURKINJE_LUM_MIN, fadeEnd, ev);
+    return pow(1.0 - t, PURKINJE_CURVE);
+}
+
+float purkinjePixelMask(vec3 exposedColor) {
+    float lum = max(dot(exposedColor, LUMA_REC709), 1e-5);
+    float ev = log2(lum / MIDDLE_GRAY);
+    return 1.0 - smoothstep(PURKINJE_PIXEL_DARK_EV, PURKINJE_PIXEL_BRIGHT_EV, ev);
+}
+
+vec3 applyPurkinje(vec3 color, float adaptation) {
+    float amount = adaptation * purkinjePixelMask(color) * PURKINJE_STRENGTH;
+    if (amount <= 0.0) return color;
+
+    float scotopicLum = dot(color, SCOTOPIC_WEIGHTS);
+    vec3 tint = SCOTOPIC_TINT / dot(SCOTOPIC_TINT, LUMA_REC709);
+    vec3 rodColor = scotopicLum * tint;
+
+    return mix(color, rodColor, amount);
+}
+
 // https://www.shadertoy.com/view/dtSGD1
 const mat3 SRGB_TO_ADJUSTED = mat3(
     0.9211994645, 0.0211994645, 0.0211994645,
@@ -82,6 +117,8 @@ void main() {
         LuminanceMinMaxAndWhitePointAndMinWhitePoint.g);
     float exposure = (MIDDLE_GRAY / refLuminance) * ExposureCompensation.g;
     inputColor *= exposure;
+
+    inputColor = applyPurkinje(inputColor, purkinjeAdaptation(refLuminance));
 
     vec4 overlayCol = texture(s_RasterizedColor, v_texcoord0);
     inputColor = mix(inputColor, overlayCol.rgb, overlayCol.a);
