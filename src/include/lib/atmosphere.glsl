@@ -13,12 +13,12 @@
 #define PLANET_CENTER vec3(0, -PLANET_RADIUS, 0)
 #define RAYLEIGH_MAX_LUM 2.5
 #define MIE_MAX_LUM 0.5
-#define M_EXPOSURE 0.23
+#define M_EXPOSURE 0.25
 #define M_FAKE_MS 0.3
 #define M_AERIAL 2.5
 #define M_LIGHT_TRANSMITTANCE 1e6
 #define M_DENSITY_HEIGHT_MOD 1e-12
-#define M_MIE 5.0
+#define M_MIE 2.0
 
 #define CAM_ALTITUDE 100.0
 
@@ -53,7 +53,7 @@ vec3 calcLightTransmittance(
     float multiplier
 ) {
     float lightExtinctionAmount = exp(-(clamp(lightDir.y + 0.05, 0.0, 1.0) * 40.0))
-        + exp(-(clamp(lightDir.y + 0.25, 0.0, 1.0) * 5.0)) * 0.4
+        + exp(-(clamp(lightDir.y + 0.3, 0.0, 1.0) * 5.0)) * 0.4
         + pow(clamp(1.0 - lightDir.y, 0.0, 1.0), 2.0) * 0.02;
     return exp(-(cRayleigh + cMie + cOzone)
         * lightExtinctionAmount
@@ -72,7 +72,7 @@ AtmosphericScattering calcAtmosphereScattering(AtmosphereParams params, vec2 t2)
         * params.aerial * M_AERIAL * AERIAL_SCALE, t2.y);
 
     float hbias = 1.0 - 1.0 / (2.0 + t2.y * t2.y * M_DENSITY_HEIGHT_MOD);
-    atm.densityR = hbias * hbias * hbias * ATMOSPHERE_DENSITY;
+    atm.densityR = hbias * hbias * hbias * hbias * ATMOSPHERE_DENSITY;
     atm.densityM = hbias * hbias * hbias * hbias * hbias * ATMOSPHERE_DENSITY;
 
     float ly = clamp(params.lightDir.y
@@ -177,8 +177,22 @@ vec3 calcAtmSky(vec3 worldDir, vec3 sunDir, vec3 moonDir, float rain) {
 
     vec4 transmittance;
     vec3 scattering = calcAtmosphere(sunAtmParams, transmittance) * SUN_RADIANCE_MULTIPLIER;
-    scattering += calcAtmosphere(moonAtmParams, transmittance)
-        * (smoothstep(0.0, 0.25, worldDir.y + 0.2) * 0.7 + 0.3) * 0.25 * MOON_RADIANCE_MULTIPLIER;
+    scattering += calcAtmosphere(moonAtmParams, transmittance) * 0.25 * MOON_RADIANCE_MULTIPLIER;
+
+    vec2 t1 = sphereIntersect(
+        vec3(0.0, CAM_ALTITUDE, 0.0),
+        worldDir,
+        PLANET_CENTER,
+        PLANET_RADIUS
+    );
+
+    if (t1.y > 0.0) {
+        float hFogModulator = smoothstep(0.75, 0.0, sunDir.y) * smoothstep(0.0, 1.0, sunDir.x);
+        vec3 groundTint = mix(vec3(0.3, 0.4, 0.5), vec3(1.0), max(1.0 - rain, hFogModulator));
+        float planetOd = exp(-(t1.y - max(0.0, t1.x)) * 1e-6);
+        scattering *= mix(groundTint, vec3(1.0), planetOd);
+    }
+
     return scattering;
 }
 
