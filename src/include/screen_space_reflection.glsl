@@ -57,8 +57,7 @@ vec2 getPreviousUV(vec3 ndc) {
 }
 
 bool isDepthInCameraBounds(float depth) {
-    if (CameraData.x < CameraData.y)
-        return CameraData.x < depth && depth < CameraData.y;
+    if (CameraData.x < CameraData.y) return CameraData.x < depth && depth < CameraData.y;
     return CameraData.x > depth && depth > CameraData.y;
 }
 
@@ -106,8 +105,9 @@ int doLinearSearch(
         float sceneDepth = sampleDepth(s_GbufferDepth, posSS.xy);
         float sceneLinearDepth = projToLinearDepth(sceneDepth);
 
-        if (sceneLinearDepth <= rayLinearDepth && prevRayDepth
-            <= (sceneLinearDepth + sceneLinearDepth * 0.05)) {
+        float thickness = smoothstep(0.0, 0.01, sceneLinearDepth) * 0.75 + 0.25;
+        if (sceneLinearDepth <= rayLinearDepth
+            && prevRayDepth <= (sceneLinearDepth + sceneLinearDepth * thickness)) {
             foundIter = i;
             foundCoord = posSS;
             break;
@@ -119,31 +119,31 @@ int doLinearSearch(
     return foundIter;
 }
 
-void doBinarySearch(
-    int foundIter,
-    vec3 rayStartSS,
-    vec3 rayStepSS,
-    inout vec3 foundCoord
-) {
-    float iterBeforeHit = float(foundIter - 1);
-    float iterAfterHit = float(foundIter);
-    int bStepCount = int(SSRRayMarchingParams.w);
-
-    for (int i = 0; i < bStepCount; i++) {
-        float iterMid = (iterBeforeHit + iterAfterHit) * 0.5;
-        vec3 posMid = rayStartSS + (rayStepSS * iterMid);
-        float rayLinearDepth = projToLinearDepth(posMid.z);
-        float sceneDepth = sampleDepth(s_GbufferDepth, posMid.xy);
-        float sceneLinearDepth = projToLinearDepth(sceneDepth);
-
-        if (rayLinearDepth > sceneLinearDepth) {
-            iterAfterHit = iterMid;
-            foundCoord = posMid;
-        } else {
-            iterBeforeHit = iterMid;
-        }
-    }
-}
+// void doBinarySearch(
+//     int foundIter,
+//     vec3 rayStartSS,
+//     vec3 rayStepSS,
+//     inout vec3 foundCoord
+// ) {
+//     float iterBeforeHit = float(foundIter - 1);
+//     float iterAfterHit = float(foundIter);
+//     int bStepCount = int(SSRRayMarchingParams.w);
+//
+//     for (int i = 0; i < bStepCount; i++) {
+//         float iterMid = (iterBeforeHit + iterAfterHit) * 0.5;
+//         vec3 posMid = rayStartSS + (rayStepSS * iterMid);
+//         float rayLinearDepth = projToLinearDepth(posMid.z);
+//         float sceneDepth = sampleDepth(s_GbufferDepth, posMid.xy);
+//         float sceneLinearDepth = projToLinearDepth(sceneDepth);
+//
+//         if (rayLinearDepth > sceneLinearDepth) {
+//             iterAfterHit = iterMid;
+//             foundCoord = posMid;
+//         } else {
+//             iterBeforeHit = iterMid;
+//         }
+//     }
+// }
 
 #if !SSR_RAY_MARCH_HZB_PASS
 layout(location = 0) in vec2 v_texcoord0;
@@ -156,12 +156,11 @@ out vec4 fragData0;
 
 void main() {
 #if SSR_RAY_MARCH_PASS
+    fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
+
     uvec4 data16 = texelFetch(s_GbufferRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
     float roughness = float(data16.r >> 8) / 255.0;
-    if (roughness > SSRRoughnessCutoffParams.x) {
-        fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
-        return;
-    }
+    if (roughness > SSRRoughnessCutoffParams.x) return;
 
     float depth = sampleDepth(s_GbufferDepth, v_texcoord0);
     vec3 viewPos = projToView(vec3(v_projPos, depth), u_invProj);
@@ -171,20 +170,14 @@ void main() {
     vec3 reflectedView = reflect(normalize(viewPos), viewNormal);
     vec3 rayEndView = viewPos + reflectedView;
 
-    if (!isDepthInCameraBounds(viewPos.z) || !isDepthInCameraBounds(rayEndView.z)) {
-        fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
-        return;
-    }
+    if (!isDepthInCameraBounds(viewPos.z) || !isDepthInCameraBounds(rayEndView.z)) return;
 
     vec3 rayStartSS = viewToProj(viewPos, u_proj);
     vec3 rayEndSS = viewToProj(rayEndView, u_proj);
     vec3 raySpanSS = rayEndSS - rayStartSS;
     vec2 raySpanPx = raySpanSS.xy * ScreenSize.xy;
     float majorPx = max(abs(raySpanPx.x), abs(raySpanPx.y));
-    if (majorPx < EPSILON) {
-        fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
-        return;
-    }
+    if (majorPx < EPSILON) return;
 
     vec3 dirPerPx = raySpanSS / majorPx;
     float pxToExit = calcPixelsToExit(rayStartSS, dirPerPx);
@@ -198,17 +191,16 @@ void main() {
 
     vec3 foundCoord = vec3(0.0);
     int foundIter = doLinearSearch(rayStartSS, rayStepSS, stepsCount, foundCoord);
-    if (foundIter < 1) {
-        fragData0 = vec4(0.0, 0.0, 0.0, -1.0);
-        return;
+    if (foundIter < 1) return;
+
+    // doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
+
+    if (foundCoord.x > 0.0 && foundCoord.x < 1.0
+        && foundCoord.y > 0.0 && foundCoord.y < 1.0
+        && foundCoord.z < 1.0) {
+        fragData0.rgb = foundCoord;
+        fragData0.a = calcRoughnessFading(roughness);
     }
-
-    doBinarySearch(foundIter, rayStartSS, rayStepSS, foundCoord);
-
-    fragData0.rgb = foundCoord;
-    fragData0.a = calcRoughnessFading(roughness)
-      * float(foundCoord.x > 0.0 && foundCoord.x < 1.0
-        && foundCoord.y > 0.0 && foundCoord.y < 1.0 && foundCoord.z < 1.0);
 #endif
 
 // currently unused
@@ -232,7 +224,7 @@ void main() {
     vec4 reflColor = vec4(texture(s_RasterColor, currUV).rgb,
         hitData.a);
 
-#if 1
+#if 0
     // apply meh filter
     vec4 mean = vec4(0.0);
     vec4 m2 = vec4(0.0);
@@ -257,13 +249,10 @@ void main() {
     }
 
     vec2 prevUV = getPreviousUV(vec3(v_texcoord0 * 2.0 - 1.0, hitData.z));
-    vec4 variance = sqrt(max(vec4(0.0), m2 / vec4(count - 1.0)));
-    vec4 prevReflCol = texture(s_PreviousReflectionBuffer, prevUV * ViewportScale.zw);
-    prevReflCol = clamp(
-        prevReflCol,
-        mean - variance * SSRTemporalAccumulationParams.y,
-        mean + variance * SSRTemporalAccumulationParams.y
-    );
+    vec4 variance = sqrt(max(vec4(0.0), m2 / vec4(count - 1.0))) * 0.25;
+    vec4 prevReflCol = clamp(
+        texture(s_PreviousReflectionBuffer, prevUV * ViewportScale.zw),
+        mean - variance, mean + variance);
 
     fragData0 = mix(prevReflCol, reflColor, SSRTemporalAccumulationParams.a);
 #else
