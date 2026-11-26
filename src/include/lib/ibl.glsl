@@ -57,7 +57,8 @@ vec3 indirectSpecular(
             convType,
             lastSpecIdx
         );
-        ilight = skyProbe * occluder;
+        float reflIntensity = 1.0 - sqrt(roughness);
+        ilight = mix(ilight, skyProbe * occluder * reflIntensity, reflIntensity);
 
         vec4 ssr = texture(s_SSRTexture, ssrUV);
         ssr.rgb = unExposeLighting(ssr.rgb * (1.0 / EXPOSURE_MULTIPLIER), exposure);
@@ -67,7 +68,7 @@ vec3 indirectSpecular(
 
     float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
     vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
-    return ilight * 0.25 * (f0 * envDFG.r + envDFG.g);
+    return ilight * 0.5 * (f0 * envDFG.r + envDFG.g);
 }
 
 #else
@@ -93,12 +94,13 @@ vec3 indirectSpecular(
             convType,
             lastSpecIdx
         );
-        ilight = skyProbe * occluder;
+        float reflIntensity = 1.0 - sqrt(roughness);
+        ilight = mix(ilight, skyProbe * occluder * reflIntensity, reflIntensity);
     }
 
     float cost = clamp(dot(-worldDir, normal), 0.0, 1.0);
     vec2 envDFG = texture(s_BrdfLUT, vec2(cost, 1.0 - roughness)).rg;
-    return ilight * 0.25 * (f0 * envDFG.r + envDFG.g);
+    return ilight * 0.5 * (f0 * envDFG.r + envDFG.g);
 }
 
 #endif
