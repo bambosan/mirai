@@ -49,10 +49,10 @@ void main() {
 
     float airScatterMod = smoothstep(0.75, 0.0, DirectionalLightSourceWorldSpaceDirection.y)
         * smoothstep(0.0, 1.0, SunDir.x)
-        * smoothstep(80.0, 0.0, -WorldOrigin.y);
+        * linearstep(90.0, 62.0, worldPos.y - WorldOrigin.y);
 
     float mie = phase(cost, 0.6, 0.0) * occlusion * SunColor.r * airScatterMod;
-    vec3 airScattering = absorbColor * mie * 0.0005;
+    vec3 airScattering = absorbColor * mie * 0.0001;
 
 #if TRANSPILE_TARGET__GLSL
     uvec2 newCoord = xyz.xy;
