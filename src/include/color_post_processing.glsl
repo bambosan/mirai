@@ -64,32 +64,31 @@ vec3 applyPurkinje(vec3 color, float adaptation) {
 }
 
 // https://www.shadertoy.com/view/dtSGD1
-const mat3 SRGB_TO_ADJUSTED = mat3(
-    0.9211994645, 0.0211994645, 0.0211994645,
-    0.0392150826, 0.9392150826, 0.0392150826,
-    0.0395854529, 0.0395854529, 0.9395854529
+const mat3 AGX_INSET = mat3(
+    0.9408995984, 0.0158995984, 0.0158995984,
+    0.0294113119, 0.9544113119, 0.0294113119,
+    0.0296890897, 0.0296890897, 0.9546890897
 );
 
-const mat3 ADJUSTED_TO_SRGB = mat3(
-    1.0875561505, -0.0235549606, -0.0235549606,
-    -0.0435723139, 1.0675387972, -0.0435723139,
-    -0.0439838366, -0.0439838366, 1.0671272745
+const mat3 AGX_OUTSET = mat3(
+    1.0638923261, -0.0171887550, -0.0171887550,
+    -0.0317960129, 1.0492850682, -0.0317960129,
+    -0.0320963132, -0.0320963132, 1.0489847679
 );
+
+const float AGX_MIN_EV = -10.0;
+const float AGX_MAX_EV = 6.5;
 
 vec3 openDomainToNormalizedLog2(vec3 openDomain) {
-    const float min_ev = -10.0;
-    const float max_ev = 6.5;
-
-    float total_exposure = max_ev - min_ev;
-    vec3 output_log = clamp(log2(openDomain / MIDDLE_GRAY), min_ev, max_ev);
-    return (output_log - min_ev) / total_exposure;
+    float total_exposure = AGX_MAX_EV - AGX_MIN_EV;
+    vec3 output_log = clamp(log2(openDomain / MIDDLE_GRAY), AGX_MIN_EV, AGX_MAX_EV);
+    return (output_log - AGX_MIN_EV) / total_exposure;
 }
 
 // https://github.com/bWFuanVzYWth/AgX
 vec3 agxCurve3(vec3 v) {
     const float threshold = 0.6060606060606061;
     const float slope = 2.3;
-
     const float a_up = 95.42903416;
     const float a_down = 15.57566596;
     const float b_up = 3.1;
@@ -101,7 +100,6 @@ vec3 agxCurve3(vec3 v) {
     vec3 a = mix(vec3(a_up), vec3(a_down), mask);
     vec3 b = mix(vec3(b_up), vec3(b_down), mask);
     vec3 c = mix(vec3(c_up), vec3(c_down), mask);
-
     return 0.5 + slope * (v - threshold) * pow(1.0 + a * pow(abs(v - threshold), b), c);
 }
 
@@ -123,11 +121,11 @@ void main() {
     vec4 overlayCol = texture(s_RasterizedColor, v_texcoord0);
     inputColor = mix(inputColor, overlayCol.rgb, overlayCol.a);
 
-    vec3 outColor = SRGB_TO_ADJUSTED * inputColor;
-    outColor = max(outColor, vec3(1e-6));
+    vec3 outColor = AGX_INSET * inputColor;
+    outColor = max(outColor, vec3(1e-5));
     outColor = openDomainToNormalizedLog2(outColor);
     outColor = agxCurve3(outColor);
-    outColor = ADJUSTED_TO_SRGB * outColor;
+    outColor = AGX_OUTSET * outColor;
 
     outColor = clamp(outColor, 0.0, 1.0);
 
